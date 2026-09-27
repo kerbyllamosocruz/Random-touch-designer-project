@@ -159,6 +159,63 @@ class MediaPipeService {
     const primaryHand = hands[0] || null;
     const secondHand = hands[1] || null;
 
+    // Determine screen-left and screen-right hands for clean bilateral coordination
+    let leftHandObj = null;
+    let rightHandObj = null;
+    if (hands.length >= 2) {
+      const h0X = (hands[0].landmarks[0].x + hands[0].landmarks[9].x) * 0.5;
+      const h1X = (hands[1].landmarks[0].x + hands[1].landmarks[9].x) * 0.5;
+      leftHandObj = h0X <= h1X ? hands[0] : hands[1];
+      rightHandObj = h0X <= h1X ? hands[1] : hands[0];
+    } else if (hands.length === 1) {
+      const h0X = (hands[0].landmarks[0].x + hands[0].landmarks[9].x) * 0.5;
+      if (h0X < 0.5) leftHandObj = hands[0];
+      else rightHandObj = hands[0];
+    }
+
+    const formatHandAnchor = (h) => {
+      if (!h || !h.landmarks) return null;
+      return {
+        wrist: { x: h.analysis.wristPos.x, y: h.analysis.wristPos.y },
+        index: { x: h.analysis.indexPos.x, y: h.analysis.indexPos.y },
+        thumb: { x: h.analysis.thumbPos.x, y: h.analysis.thumbPos.y },
+        palm: {
+          x: (h.landmarks[0].x + h.landmarks[5].x + h.landmarks[17].x) / 3,
+          y: (h.landmarks[0].y + h.landmarks[5].y + h.landmarks[17].y) / 3
+        },
+        fingertips: [
+          { x: h.landmarks[4].x, y: h.landmarks[4].y, name: 'Thumb', tipIdx: 4, code: 'THB' },
+          { x: h.landmarks[8].x, y: h.landmarks[8].y, name: 'Index', tipIdx: 8, code: 'IDX' },
+          { x: h.landmarks[12].x, y: h.landmarks[12].y, name: 'Middle', tipIdx: 12, code: 'MID' },
+          { x: h.landmarks[16].x, y: h.landmarks[16].y, name: 'Ring', tipIdx: 16, code: 'RNG' },
+          { x: h.landmarks[20].x, y: h.landmarks[20].y, name: 'Pinky', tipIdx: 20, code: 'PNK' }
+        ],
+        gesture: h.analysis.gesture.id,
+        gestureName: h.analysis.gesture.name,
+        landmarks: h.landmarks
+      };
+    };
+
+    const leftFormatted = formatHandAnchor(leftHandObj);
+    const rightFormatted = formatHandAnchor(rightHandObj);
+
+    // Compute fingertip-to-fingertip distances across left & right hands
+    const fingerDistances = {
+      thumbDist: 0.0,
+      indexDist: 0.0,
+      middleDist: 0.0,
+      ringDist: 0.0,
+      pinkyDist: 0.0
+    };
+
+    if (leftFormatted && rightFormatted) {
+      fingerDistances.thumbDist = Math.hypot(leftFormatted.fingertips[0].x - rightFormatted.fingertips[0].x, leftFormatted.fingertips[0].y - rightFormatted.fingertips[0].y);
+      fingerDistances.indexDist = Math.hypot(leftFormatted.fingertips[1].x - rightFormatted.fingertips[1].x, leftFormatted.fingertips[1].y - rightFormatted.fingertips[1].y);
+      fingerDistances.middleDist = Math.hypot(leftFormatted.fingertips[2].x - rightFormatted.fingertips[2].x, leftFormatted.fingertips[2].y - rightFormatted.fingertips[2].y);
+      fingerDistances.ringDist = Math.hypot(leftFormatted.fingertips[3].x - rightFormatted.fingertips[3].x, leftFormatted.fingertips[3].y - rightFormatted.fingertips[3].y);
+      fingerDistances.pinkyDist = Math.hypot(leftFormatted.fingertips[4].x - rightFormatted.fingertips[4].x, leftFormatted.fingertips[4].y - rightFormatted.fingertips[4].y);
+    }
+
     // Build comprehensive TouchDesigner CHOP channels
     const channels = {
       detected: primaryHand ? 1.0 : 0.0,
@@ -195,7 +252,18 @@ class MediaPipeService {
       twoHandDist: hands.length >= 2 ? Math.hypot(
         hands[0].analysis.wristPos.x - hands[1].analysis.wristPos.x,
         hands[0].analysis.wristPos.y - hands[1].analysis.wristPos.y
-      ) : 0.0
+      ) : 0.0,
+
+      // 5-Finger Tip-to-Tip Spatial Link Channels
+      allFingertipsConnected: (leftFormatted && rightFormatted) ? 1.0 : 0.0,
+      ...fingerDistances,
+
+      // Spatial Hand Anchors
+      h1: leftFormatted || formatHandAnchor(primaryHand),
+      h2: rightFormatted || formatHandAnchor(secondHand),
+      leftHand: leftFormatted,
+      rightHand: rightFormatted,
+      hands
     };
 
     // Render composited visual output with cyberpunk skeleton & FX
@@ -212,7 +280,7 @@ class MediaPipeService {
       }
 
       if (overlayMode !== 'clean') {
-        this.renderMultiHandOverlay(ctx, hands, sw, sh);
+        this.renderMultiHandOverlay(ctx, hands, sw, sh, params);
       }
     }
 
@@ -230,8 +298,7 @@ class MediaPipeService {
   buildEmptyResult(sourceElement, sw, sh) {
     if (this.outputCtx) {
       this.outputCtx.drawImage(sourceElement, 0, 0, sw, sh);
-      const emptyAnalysis = handGestureDetector.analyze(null, 0);
-      handGestureDetector.renderSkeleton(this.outputCtx, emptyAnalysis, sw, sh);
+      // No overlay on empty result — camera shows clean
     }
 
     return {
@@ -272,129 +339,112 @@ class MediaPipeService {
   }
 
   /**
-   * Render Multi-Hand Skeletons, Banners, and Interactive FX
+   * Render Multi-Hand Overlays — skeleton, joints, reticles, and connecting lines.
+   * All visual layers are opt-in via `params` flags from the mediaPipeHand node settings.
    */
-  renderMultiHandOverlay(ctx, hands, width, height) {
-    if (!hands || hands.length === 0) {
-      const emptyAnalysis = handGestureDetector.analyze(null, 0);
-      handGestureDetector.renderSkeleton(ctx, emptyAnalysis, width, height);
-      return;
-    }
+  renderMultiHandOverlay(ctx, hands, width, height, params = {}) {
+    if (!hands || hands.length < 2) return;
 
-    hands.forEach((hand, idx) => {
-      const { landmarks, analysis, handedness } = hand;
-      const isDominant = idx === 0;
+    const showSkeleton = params.showSkeleton === true;
+    const showJoints   = params.showJoints   === true;
+    const showReticles = params.showReticles  === true;
+    const showGestureFX = params.showGestureFX === true;
 
-      // Color scheme: Cyan for Dominant/Right, Fuchsia/Magenta for Left/Secondary
-      const handColor = isDominant ? (analysis.gesture.color || '#38bdf8') : '#ec4899';
+    // Sort so leftHand is screen-left (smaller X) and rightHand is screen-right
+    const h0X = (hands[0].landmarks[0].x + hands[0].landmarks[9].x) * 0.5;
+    const h1X = (hands[1].landmarks[0].x + hands[1].landmarks[9].x) * 0.5;
+    const leftHand  = h0X <= h1X ? hands[0] : hands[1];
+    const rightHand = h0X <= h1X ? hands[1] : hands[0];
 
-      ctx.save();
+    const FINGER_SPECS = [
+      { tipIdx: 4,  name: 'Thumb',  code: 'THB', fingerKey: 'thumb'  },
+      { tipIdx: 8,  name: 'Index',  code: 'IDX', fingerKey: 'index'  },
+      { tipIdx: 12, name: 'Middle', code: 'MID', fingerKey: 'middle' },
+      { tipIdx: 16, name: 'Ring',   code: 'RNG', fingerKey: 'ring'   },
+      { tipIdx: 20, name: 'Pinky',  code: 'PNK', fingerKey: 'pinky'  }
+    ];
 
-      // Holographic HUD Badge per hand
-      const badgeY = 12 + idx * 42;
-      ctx.fillStyle = 'rgba(10, 14, 23, 0.85)';
-      ctx.fillRect(10, badgeY, Math.min(width - 20, 310), 36);
-      ctx.strokeStyle = handColor;
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect(10, badgeY, Math.min(width - 20, 310), 36);
+    const leftTips  = FINGER_SPECS.map(f => ({ x: leftHand.landmarks[f.tipIdx].x  * width, y: leftHand.landmarks[f.tipIdx].y  * height, ...f }));
+    const rightTips = FINGER_SPECS.map(f => ({ x: rightHand.landmarks[f.tipIdx].x * width, y: rightHand.landmarks[f.tipIdx].y * height, ...f }));
 
-      ctx.font = '16px sans-serif';
-      ctx.fillText(analysis.gesture.icon, 20, badgeY + 24);
+    ctx.save();
 
-      ctx.font = 'bold 11px "Outfit", sans-serif';
-      ctx.fillStyle = '#fff';
-      ctx.fillText(`${handedness.toUpperCase()} · ${analysis.gesture.name.toUpperCase()}`, 48, badgeY + 16);
-
-      ctx.font = '10px "JetBrains Mono", monospace';
-      ctx.fillStyle = handColor;
-      ctx.fillText(`EFFECT: ${analysis.gesture.effectName}`, 48, badgeY + 29);
-
-      // Bones
-      ctx.lineWidth = 3;
-      HAND_CONNECTIONS.forEach(([startIdx, endIdx]) => {
-        const p1 = landmarks[startIdx];
-        const p2 = landmarks[endIdx];
-        if (!p1 || !p2) return;
-
-        const grad = ctx.createLinearGradient(p1.x * width, p1.y * height, p2.x * width, p2.y * height);
-        grad.addColorStop(0, handColor);
-        grad.addColorStop(1, '#06b6d4');
-
-        ctx.strokeStyle = grad;
-        ctx.shadowColor = handColor;
-        ctx.shadowBlur = 8;
-
-        ctx.beginPath();
-        ctx.moveTo(p1.x * width, p1.y * height);
-        ctx.lineTo(p2.x * width, p2.y * height);
-        ctx.stroke();
-      });
-
-      // Joints
-      landmarks.forEach((p, jIdx) => {
-        const x = p.x * width;
-        const y = p.y * height;
-        const isTip = [4, 8, 12, 16, 20].includes(jIdx);
-
-        ctx.fillStyle = isTip ? '#ffffff' : handColor;
-        ctx.shadowColor = handColor;
-        ctx.shadowBlur = isTip ? 12 : 5;
-
-        ctx.beginPath();
-        ctx.arc(x, y, isTip ? 5 : 3, 0, Math.PI * 2);
-        ctx.fill();
-      });
-      ctx.shadowBlur = 0;
-
-      // Gesture-specific FX
-      if (analysis.gesture.id === 'pointing' && analysis.indexPos) {
-        const ix = analysis.indexPos.x * width;
-        const iy = analysis.indexPos.y * height;
-        ctx.fillStyle = 'rgba(168, 85, 247, 0.4)';
-        ctx.beginPath();
-        ctx.arc(ix, iy, 22, 0, Math.PI * 2);
-        ctx.fill();
-      } else if (analysis.gesture.id === 'pinch') {
-        const t1 = landmarks[4];
-        const t2 = landmarks[8];
-        if (t1 && t2) {
-          ctx.strokeStyle = '#f59e0b';
-          ctx.lineWidth = 3;
+    // === OPTIONAL: Per-hand skeleton bones ===
+    if (showSkeleton) {
+      [leftHand, rightHand].forEach(hand => {
+        ctx.lineWidth = 2;
+        HAND_CONNECTIONS.forEach(([a, b]) => {
+          const p1 = hand.landmarks[a];
+          const p2 = hand.landmarks[b];
+          const grad = ctx.createLinearGradient(p1.x * width, p1.y * height, p2.x * width, p2.y * height);
+          grad.addColorStop(0, hand.analysis.gesture.color || '#38bdf8');
+          grad.addColorStop(1, '#06b6d4');
+          ctx.strokeStyle = grad;
+          ctx.shadowColor = hand.analysis.gesture.color || '#38bdf8';
+          ctx.shadowBlur = 6;
           ctx.beginPath();
-          ctx.moveTo(t1.x * width, t1.y * height);
-          ctx.lineTo(t2.x * width, t2.y * height);
+          ctx.moveTo(p1.x * width, p1.y * height);
+          ctx.lineTo(p2.x * width, p2.y * height);
           ctx.stroke();
-        }
-      }
+        });
+        ctx.shadowBlur = 0;
+      });
+    }
 
-      ctx.restore();
-    });
+    // === OPTIONAL: Joint dots ===
+    if (showJoints) {
+      [leftHand, rightHand].forEach(hand => {
+        hand.landmarks.forEach((p, idx) => {
+          const isTip = [4, 8, 12, 16, 20].includes(idx);
+          ctx.fillStyle = isTip ? '#ffffff' : (hand.analysis.gesture.color || '#38bdf8');
+          ctx.shadowColor = hand.analysis.gesture.color || '#38bdf8';
+          ctx.shadowBlur = isTip ? 12 : 4;
+          ctx.beginPath();
+          ctx.arc(p.x * width, p.y * height, isTip ? 4 : 2.5, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        ctx.shadowBlur = 0;
+      });
+    }
 
-    // If 2 hands are tracked, draw interactive connection arc between wrists
-    if (hands.length >= 2) {
-      const w1 = hands[0].landmarks[0];
-      const w2 = hands[1].landmarks[0];
-      if (w1 && w2) {
-        ctx.save();
-        ctx.strokeStyle = 'rgba(6, 182, 212, 0.5)';
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([6, 6]);
-        ctx.beginPath();
-        ctx.moveTo(w1.x * width, w1.y * height);
-        ctx.lineTo(w2.x * width, w2.y * height);
-        ctx.stroke();
-
-        const midX = (w1.x + w2.x) * 0.5 * width;
-        const midY = (w1.y + w2.y) * 0.5 * height;
-        const dist = Math.hypot((w1.x - w2.x) * width, (w1.y - w2.y) * height);
-
-        ctx.fillStyle = '#06b6d4';
-        ctx.font = '10px "JetBrains Mono", monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText(`DUAL HAND SPAN: ${Math.round(dist)}px`, midX, midY - 8);
-        ctx.restore();
+    // === OPTIONAL: Gesture FX (per-hand) ===
+    if (showGestureFX) {
+      for (const hand of [leftHand, rightHand]) {
+        handGestureDetector.renderSkeleton(ctx, hand.analysis, width, height);
       }
     }
+
+    // NOTE: All polygon membranes and finger-to-finger lines are drawn by handActionFX
+    // (TexturePipeline), which respects the activeFingers selection. Nothing is drawn here.
+
+    // === OPTIONAL: Fingertip reticle circles + label badges ===
+    if (showReticles) {
+      const LABEL_SIDE = ['L', 'R'];
+      [leftTips, rightTips].forEach((tips, side) => {
+        tips.forEach(tp => {
+          // Reticle ring
+          ctx.beginPath();
+          ctx.arc(tp.x, tp.y, 8, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+          ctx.shadowColor = '#ffffff';
+          ctx.shadowBlur = 10;
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+
+          // Label badge
+          const label = `${LABEL_SIDE[side]}-${tp.code}`;
+          ctx.fillStyle = 'rgba(8,8,10,0.75)';
+          const textW = label.length * 5.5 + 6;
+          ctx.fillRect(tp.x + 10, tp.y - 9, textW, 14);
+          ctx.fillStyle = '#c6ff00';
+          ctx.font = 'bold 8px "JetBrains Mono", monospace';
+          ctx.fillText(label, tp.x + 13, tp.y + 2);
+        });
+      });
+    }
+
+    ctx.restore();
   }
 }
 

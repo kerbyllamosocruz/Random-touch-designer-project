@@ -9,7 +9,7 @@ export const GESTURE_DEFINITIONS = {
   open_palm: {
     id: 'open_palm',
     name: 'Open Palm',
-    icon: '✋',
+    icon: 'PALM',
     description: 'All 5 fingers open',
     effectName: 'SUPERNOVA EXPANSION',
     color: '#38bdf8'
@@ -17,7 +17,7 @@ export const GESTURE_DEFINITIONS = {
   fist: {
     id: 'fist',
     name: 'Closed Fist',
-    icon: '✊',
+    icon: 'FIST',
     description: 'All fingers curled tight',
     effectName: 'GRAVITATIONAL VORTEX',
     color: '#f43f5e'
@@ -25,7 +25,7 @@ export const GESTURE_DEFINITIONS = {
   pointing: {
     id: 'pointing',
     name: 'Index Pointing',
-    icon: '☝️',
+    icon: 'POINT',
     description: 'Index finger extended',
     effectName: 'NEON LASER POINTER',
     color: '#a855f7'
@@ -33,7 +33,7 @@ export const GESTURE_DEFINITIONS = {
   peace: {
     id: 'peace',
     name: 'Peace / Victory',
-    icon: '✌️',
+    icon: 'PEACE',
     description: 'Index & Middle extended',
     effectName: 'DUAL KALEIDOSCOPE',
     color: '#10b981'
@@ -41,7 +41,7 @@ export const GESTURE_DEFINITIONS = {
   pinch: {
     id: 'pinch',
     name: 'Finger Pinch',
-    icon: '🤏',
+    icon: 'PINCH',
     description: 'Thumb & Index touching',
     effectName: 'DYNAMIC PINCH ZOOM',
     color: '#f59e0b'
@@ -49,7 +49,7 @@ export const GESTURE_DEFINITIONS = {
   rock: {
     id: 'rock',
     name: 'Rock / Horns',
-    icon: '🤘',
+    icon: 'ROCK',
     description: 'Index & Pinky extended',
     effectName: 'ELECTRIC GLITCH',
     color: '#ec4899'
@@ -57,7 +57,7 @@ export const GESTURE_DEFINITIONS = {
   thumbs_up: {
     id: 'thumbs_up',
     name: 'Thumbs Up',
-    icon: '👍',
+    icon: 'THUMB',
     description: 'Thumb extended upwards',
     effectName: 'SPECTRUM INVERSION',
     color: '#eab308'
@@ -65,7 +65,7 @@ export const GESTURE_DEFINITIONS = {
   none: {
     id: 'none',
     name: 'No Hand Detected',
-    icon: '👋',
+    icon: 'IDLE',
     description: 'Wave hand in front of camera',
     effectName: 'AWAITING HAND MOVEMENT',
     color: '#64748b'
@@ -223,7 +223,7 @@ export class HandGestureDetector {
     const pinkyExt = this.dist(pinkyTip, wrist) > this.dist(landmarks[18], wrist) * 1.15;
     const thumbExt = this.dist(thumbTip, landmarks[17]) > this.dist(landmarks[2], landmarks[17]) * 1.25;
 
-    // Robust Peace Sign (✌️): Index & Middle extended, Ring & Pinky curled
+    // Robust Peace Sign: Index & Middle extended, Ring & Pinky curled
     const isPeace = indexExt && middleExt &&
       (!ringExt || this.dist(ringTip, wrist) < this.dist(middleTip, wrist) * 0.82) &&
       (!pinkyExt || this.dist(pinkyTip, wrist) < this.dist(middleTip, wrist) * 0.82);
@@ -308,56 +308,12 @@ export class HandGestureDetector {
    */
   renderSkeleton(ctx, analysis, width, height) {
     if (!analysis.detected || !analysis.landmarks) {
-      // Draw simulated pulsing HUD when awaiting hand
-      ctx.save();
-      ctx.fillStyle = 'rgba(6, 182, 212, 0.08)';
-      ctx.fillRect(0, 0, width, height);
-
-      ctx.strokeStyle = 'rgba(6, 182, 212, 0.4)';
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([4, 6]);
-      ctx.strokeRect(width * 0.25, height * 0.2, width * 0.5, height * 0.6);
-      ctx.setLineDash([]);
-
-      ctx.fillStyle = '#06b6d4';
-      ctx.font = 'bold 12px "JetBrains Mono", monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText('AWAITING HAND MOVEMENT...', width / 2, height / 2 - 10);
-      ctx.font = '10px "Inter", sans-serif';
-      ctx.fillStyle = '#94a3b8';
-      ctx.fillText('Show hand to camera or use gestures', width / 2, height / 2 + 12);
-      ctx.restore();
       return;
     }
 
     const { landmarks, gesture, fingers, pinchDist, indexPos } = analysis;
 
     ctx.save();
-
-    // 1. Draw Gesture Action Holographic Banner
-    ctx.fillStyle = 'rgba(10, 14, 23, 0.75)';
-    ctx.fillRect(10, 10, width - 20, 36);
-    ctx.strokeStyle = gesture.color;
-    ctx.lineWidth = 1;
-    ctx.strokeRect(10, 10, width - 20, 36);
-
-    ctx.font = '16px sans-serif';
-    ctx.fillText(gesture.icon, 20, 34);
-
-    ctx.font = 'bold 12px "Outfit", sans-serif';
-    ctx.fillStyle = '#fff';
-    ctx.fillText(gesture.name.toUpperCase(), 48, 26);
-
-    ctx.font = '10px "JetBrains Mono", monospace';
-    ctx.fillStyle = gesture.color;
-    ctx.fillText(`EFFECT: ${gesture.effectName}`, 48, 38);
-
-    // Finger count badge
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-    ctx.fillRect(width - 110, 16, 90, 24);
-    ctx.fillStyle = '#cbd5e1';
-    ctx.font = '10px "JetBrains Mono", monospace';
-    ctx.fillText(`${analysis.fingerCount} FINGERS`, width - 96, 32);
 
     // 2. Draw Bones / Connections
     ctx.lineWidth = 3;
