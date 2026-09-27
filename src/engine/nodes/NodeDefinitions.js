@@ -3,10 +3,10 @@
  */
 
 export const NODE_CATEGORIES = {
-  TOP: { id: 'TOP', label: 'TOP (Texture)', color: '#8b5cf6', badge: '🟣' },
-  AI: { id: 'AI', label: 'AI (ONNX Runtime)', color: '#06b6d4', badge: '🔵' },
-  CHOP: { id: 'CHOP', label: 'CHOP (Channel)', color: '#10b981', badge: '🟢' },
-  OUT: { id: 'OUT', label: 'OUT (Render / Record)', color: '#f59e0b', badge: '🟠' }
+  TOP: { id: 'TOP', label: 'TOP (Texture)', color: '#818cf8', badge: '[TOP]' },
+  AI: { id: 'AI', label: 'AI (ONNX Runtime)', color: '#38bdf8', badge: '[AI]' },
+  CHOP: { id: 'CHOP', label: 'CHOP (Channel)', color: '#34d399', badge: '[CHOP]' },
+  OUT: { id: 'OUT', label: 'OUT (Render / Record)', color: '#c6ff00', badge: '[OUT]' }
 };
 
 export const OPERATOR_DEFINITIONS = {
@@ -194,7 +194,11 @@ export const OPERATOR_DEFINITIONS = {
       overlayMode: 'composite', // 'composite', 'skeleton_only', 'clean'
       minConfidence: 0.5,
       delegate: 'GPU',
-      interval: 1
+      interval: 1,
+      showSkeleton: false,
+      showJoints: false,
+      showReticles: false,
+      showGestureFX: false
     }
   },
 
@@ -221,45 +225,25 @@ export const OPERATOR_DEFINITIONS = {
 
   handActionFX: {
     type: 'handActionFX',
-    category: 'TOP',
+    category: 'OUT',
     name: 'handActionFX',
-    label: 'Hand Gesture Action FX',
+    label: 'handActionFX [Output]',
     inputs: [
       { id: 'in1', label: 'Texture In', type: 'texture' },
       { id: 'chanIn', label: 'Hand CHOP In', type: 'channel' }
     ],
     outputs: [{ id: 'out1', label: 'Texture', type: 'texture' }],
     defaultParams: {
+      style: 'glass_prism', // 'glass_prism', 'halftone_dots', 'thermal_vision', 'cyber_grid'
       intensity: 1.0,
-      active: true
+      active: true,
+      activeFingers: { thumb: true, index: true, middle: true, ring: true, pinky: true },
+      showSkeleton: false,
+      showReticles: false
     }
   },
 
   // === CHOPs ===
-  audioIn: {
-    type: 'audioIn',
-    category: 'CHOP',
-    name: 'audioIn',
-    label: 'Audio In CHOP',
-    inputs: [],
-    outputs: [{ id: 'chanOut', label: 'Audio Signal', type: 'channel' }],
-    defaultParams: {
-      source: 'synth', // 'mic' or 'synth'
-      active: true
-    }
-  },
-  audioAnalysis: {
-    type: 'audioAnalysis',
-    category: 'CHOP',
-    name: 'audioAnalysis',
-    label: 'Audio Analysis CHOP',
-    inputs: [{ id: 'chanIn', label: 'Audio In', type: 'channel' }],
-    outputs: [{ id: 'chanOut', label: 'FFT Channels', type: 'channel' }],
-    defaultParams: {
-      sensitivity: 1.5,
-      smoothing: 0.8
-    }
-  },
   lfo: {
     type: 'lfo',
     category: 'CHOP',
