@@ -4,9 +4,9 @@ A web-based visual programming canvas and real-time generative visual synthesis 
 
 ---
 
-## ⚡ Features
+## Features
 
-### 1. 🖐 MediaPipe Hand Tracking (`mediaPipeHand`)
+### 1. MediaPipe Hand Tracking (`mediaPipeHand`)
 Real-time dual-hand detection using MediaPipe HandLandmarker (GPU/WebGL accelerated):
 - Tracks **21 landmarks** per hand at up to 60 FPS
 - Exports per-finger extension state, gesture classification, wrist & fingertip positions as CHOP channels
@@ -17,7 +17,7 @@ Real-time dual-hand detection using MediaPipe HandLandmarker (GPU/WebGL accelera
   - **Gesture FX** — gesture-reactive particles (fist vortex, palm burst, pointing laser trail, etc.)
 - Gesture classification: `open_palm`, `fist`, `pointing`, `peace`, `pinch`, `rock`, `thumbs_up`
 
-### 2. ✨ Dual-Hand Glass Portal Operator (`handActionFX`)
+### 2. Dual-Hand Glass Portal Operator (`handActionFX`)
 Holographic glass membrane that forms between both hands' fingertips with real-time visual effects:
 
 #### Interactive Fingertip Selector
@@ -46,7 +46,7 @@ Holographic glass membrane that forms between both hands' fingertips with real-t
 - **Open hands** → full effect active
 - Adjustable **Intensity** (0.2× – 3.0×) slider
 
-### 3. 🟣 Texture Operators (TOPs)
+### 3. Texture Operators (TOPs)
 - **`videoIn`**: Real-time webcam feed with mirror controls + procedural video loops
 - **`movieFileIn`**: Video/image file player with variable speed and loop modes
 - **`feedback`**: Recursive trailing, zoom vortex, rotation, hue cycling
@@ -59,7 +59,7 @@ Holographic glass membrane that forms between both hands' fingertips with real-t
 - **`noise`**: Procedural animated Simplex/Perlin noise
 - **`glsl`**: Live GLSL fragment shader editor with WebGL compilation and presets
 
-### 4. 🔵 ONNX Runtime AI Operators (`onnxModel`)
+### 4. ONNX Runtime AI Operators (`onnxModel`)
 Run deep learning models in-browser via WASM-SIMD or WebGPU:
 - **MediaPipe Selfie Segmentation**: Person segmentation & background matte
 - **Neural Sobel Edge Tensor**: Gradient magnitude edge extractor
@@ -67,18 +67,18 @@ Run deep learning models in-browser via WASM-SIMD or WebGPU:
 - **SqueezeNet 1.1**: 1,000-class vision classifier
 - **Custom `.onnx` Model Loader**: Upload any `.onnx` file and execute in real time
 
-### 5. 🟢 Channel Operators (CHOPs)
+### 5. Channel Operators (CHOPs)
 - **`audioIn`**: Live microphone capture
 - **`audioAnalysis`**: Real-time 512-bin FFT — Sub-Bass, Bass, Mid, Treble, RMS, Beat triggers
 - **`lfo`**: Low-Frequency Oscillator (Sine, Triangle, Square, Ramp)
 - **`math`**: Multiplication, addition, range remapping
 
-### 6. 🟠 Output Operators (OUT)
+### 6. Output Operators (OUT)
 - **`outWindow`**: Master output with fullscreen (`F10`), PNG snapshot, and WebM video recording
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ```bash
 npm install
@@ -92,7 +92,7 @@ npm run build   # Production bundle
 
 ---
 
-## 🎹 Keyboard Shortcuts
+## Keyboard Shortcuts
 
 | Shortcut | Action |
 |:---|:---|
@@ -106,7 +106,7 @@ npm run build   # Production bundle
 
 ---
 
-## 🎨 Using the Hand Portal
+## Using the Hand Portal
 
 1. Add a **`videoIn`** node → connect to **`mediaPipeHand`** → connect to **`handActionFX`** → connect to **`outWindow`**
 2. Allow camera access when prompted
@@ -120,7 +120,7 @@ npm run build   # Production bundle
 
 ---
 
-## 📦 Project Architecture
+## Project Architecture
 
 ```
 src/
@@ -152,7 +152,7 @@ src/
 
 ---
 
-## 🎨 Design System
+## Design System
 
 The UI uses a **neo-brutalist** aesthetic:
 - **Base**: Obsidian dark `#0a0b0f`
@@ -163,6 +163,6 @@ The UI uses a **neo-brutalist** aesthetic:
 
 ---
 
-## 📝 License
+## License
 
 MIT
