@@ -1,6 +1,5 @@
 import React from 'react';
-import { Play, Pause, RotateCcw, Volume2, Cpu } from 'lucide-react';
-import { onnxService } from '../engine/onnx/OnnxRuntimeService.js';
+import { Play, Pause, RotateCcw, Cpu, Terminal } from 'lucide-react';
 
 export function TimelineBar({
   isPlaying,
@@ -8,11 +7,17 @@ export function TimelineBar({
   frame,
   totalFrames = 600,
   onSeek,
-  audioMetrics,
   provider,
   onChangeProvider
 }) {
   const formatFrame = (f) => String(f % totalFrames).padStart(5, '0');
+
+  // Compute simulated timecode HH:MM:SS:FF at 60fps
+  const totalSeconds = Math.floor(frame / 60);
+  const mm = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
+  const ss = String(totalSeconds % 60).padStart(2, '0');
+  const ff = String(frame % 60).padStart(2, '0');
+  const timecode = `00:${mm}:${ss}:${ff}`;
 
   return (
     <footer className="timeline-bar" id="timeline-bar">
@@ -24,7 +29,8 @@ export function TimelineBar({
           onClick={onTogglePlay}
           title={isPlaying ? 'Pause Timeline (Space)' : 'Play Timeline (Space)'}
         >
-          {isPlaying ? <Pause size={14} /> : <Play size={14} />}
+          {isPlaying ? <Pause size={13} /> : <Play size={13} />}
+          <span className="transport-btn-label">{isPlaying ? 'PAUSE' : 'PLAY'}</span>
         </button>
 
         <button
@@ -33,61 +39,57 @@ export function TimelineBar({
           onClick={() => onSeek(0)}
           title="Rewind to Frame 0"
         >
-          <RotateCcw size={13} />
+          <RotateCcw size={12} />
+          <span className="transport-btn-label">REW</span>
         </button>
 
         <div className="frame-counter" id="frame-counter">
-          <span>{formatFrame(frame)}</span>
-          <span style={{ color: 'var(--text-dim)', margin: '0 4px' }}>/</span>
-          <span style={{ color: 'var(--text-muted)' }}>{String(totalFrames).padStart(5, '0')}</span>
+          <span className="frame-current">{formatFrame(frame)}</span>
+          <span className="frame-separator">//</span>
+          <span className="frame-total">{String(totalFrames).padStart(5, '0')}</span>
         </div>
       </div>
 
       {/* Scrubber */}
       <div className="timeline-center">
-        <input
-          id="timeline-scrubber"
-          type="range"
-          className="timeline-scrubber"
-          min="0"
-          max={totalFrames}
-          value={frame % totalFrames}
-          onChange={(e) => onSeek(parseInt(e.target.value))}
-        />
+        <div className="timeline-track-wrap">
+          <input
+            id="timeline-scrubber"
+            type="range"
+            className="timeline-scrubber"
+            min="0"
+            max={totalFrames}
+            value={frame % totalFrames}
+            onChange={(e) => onSeek(parseInt(e.target.value))}
+          />
+        </div>
       </div>
 
-      {/* Audio Reactive VU Meter & Provider */}
+      {/* Utilitarian Telemetry (Silent / Audio-Free) */}
       <div className="timeline-right">
-        {/* Audio VU Bars */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }} title="Audio Reactivity VU Meter">
-          <Volume2 size={13} color="#10b981" />
-          <div className="audio-vu-meter">
-            <div className={`vu-segment ${audioMetrics?.bass > 0.1 ? 'lit-low' : ''}`} />
-            <div className={`vu-segment ${audioMetrics?.bass > 0.3 ? 'lit-low' : ''}`} />
-            <div className={`vu-segment ${audioMetrics?.mid > 0.2 ? 'lit-mid' : ''}`} />
-            <div className={`vu-segment ${audioMetrics?.mid > 0.4 ? 'lit-mid' : ''}`} />
-            <div className={`vu-segment ${audioMetrics?.treble > 0.2 ? 'lit-mid' : ''}`} />
-            <div className={`vu-segment ${audioMetrics?.beat > 0.5 ? 'lit-high' : ''}`} />
-          </div>
+        {/* Timecode Readout */}
+        <div className="timeline-telemetry-tag" title="Timecode (SMPTE)">
+          <Terminal size={11} color="var(--accent-sharp)" />
+          <span className="timecode-text">TC: {timecode}</span>
         </div>
 
-        {/* BPM */}
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-muted)' }}>
-          120.0 BPM
-        </span>
+        {/* Status Indicator */}
+        <div className="timeline-status-badge">
+          <span className="status-blink-dot" />
+          <span className="status-text">{isPlaying ? 'ENGINE // RUN' : 'ENGINE // IDLE'}</span>
+        </div>
 
         {/* Execution Provider Toggle */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <Cpu size={12} color="#06b6d4" />
+        <div className="provider-select-wrap">
+          <Cpu size={12} color="var(--accent-sharp)" />
           <select
-            className="select-dropdown"
-            style={{ padding: '3px 6px', fontSize: '10px' }}
+            className="select-dropdown provider-select"
             value={provider}
             onChange={(e) => onChangeProvider(e.target.value)}
             title="ONNX Execution Provider"
           >
             <option value="wasm">WASM-SIMD</option>
-            <option value="webgpu">WebGPU</option>
+            <option value="webgpu">WEBGPU</option>
           </select>
         </div>
       </div>

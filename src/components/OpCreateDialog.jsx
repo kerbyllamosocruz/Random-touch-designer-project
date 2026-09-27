@@ -62,7 +62,7 @@ export function OpCreateDialog({ isOpen, onClose, onAddOperator }) {
               id="op-search-input"
               type="text"
               className="op-search-input"
-              placeholder="Search operators (e.g. onnx, feedback, glsl, audio, displace)..."
+              placeholder="SEARCH OPERATORS (ONNX, MEDIAPIPE, GLSL, FEEDBACK, DISPLACE)..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -79,20 +79,20 @@ export function OpCreateDialog({ isOpen, onClose, onAddOperator }) {
               style={{ backgroundColor: selectedCategory === 'ALL' ? 'var(--bg-elevated)' : undefined }}
               onClick={() => setSelectedCategory('ALL')}
             >
-              ALL
+              [ALL]
             </button>
             {Object.values(NODE_CATEGORIES).map((cat) => (
               <button
                 key={cat.id}
                 className={`op-cat-tab ${selectedCategory === cat.id ? 'active' : ''}`}
                 style={{
-                  borderColor: selectedCategory === cat.id ? cat.color : undefined,
-                  backgroundColor: selectedCategory === cat.id ? `${cat.color}25` : undefined,
-                  color: selectedCategory === cat.id ? cat.color : undefined
+                  borderColor: selectedCategory === cat.id ? 'var(--accent-sharp)' : undefined,
+                  backgroundColor: selectedCategory === cat.id ? 'rgba(198, 255, 0, 0.15)' : undefined,
+                  color: selectedCategory === cat.id ? 'var(--accent-sharp)' : undefined
                 }}
                 onClick={() => setSelectedCategory(cat.id)}
               >
-                {cat.badge} {cat.id}
+                {cat.badge}
               </button>
             ))}
           </div>
@@ -124,7 +124,7 @@ export function OpCreateDialog({ isOpen, onClose, onAddOperator }) {
                 <span className="op-card-desc">
                   {op.type === 'mediaPipeHand' && 'Google MediaPipe HandLandmarker: 60 FPS multi-hand tracking, 21 3D landmarks, gestures & pinch CHOP.'}
                   {op.type === 'onnxModel' && 'In-browser neural inference: Selfie Segmentation, SqueezeNet, Edge Tensors, or custom .onnx.'}
-                  {op.type === 'handActionFX' && 'Transforms visuals with unique results for each hand gesture (Fist, Palm, Point, Peace, Pinch, Rock).'}
+                  {op.type === 'handActionFX' && 'Spans a holographic refractive glass slab between both hands with plasma filaments, particles, and optical effects.'}
                   {op.type === 'videoIn' && 'Real-time webcam video feed or high-framerate procedural loops.'}
                   {op.type === 'movieFileIn' && 'Video player with playback speed, loop and file loader.'}
                   {op.type === 'feedback' && 'Signature feedback loop for infinite trailing and vortex visual synthesis.'}
@@ -137,8 +137,6 @@ export function OpCreateDialog({ isOpen, onClose, onAddOperator }) {
                   {op.type === 'noise' && 'Animated procedural Simplex/Perlin trigonometric noise.'}
                   {op.type === 'transform' && 'Spatial transform: 2D scale, rotation, and translation.'}
                   {op.type === 'glsl' && 'Custom live GLSL fragment shader editor with WebGL compilation.'}
-                  {op.type === 'audioIn' && 'Live microphone audio capture or electronic synth generator.'}
-                  {op.type === 'audioAnalysis' && 'Real-time FFT audio spectrum analyzer (bass, mid, treble, beat).'}
                   {op.type === 'lfo' && 'Low-frequency oscillator generating sine/triangle/square waves.'}
                   {op.type === 'math' && 'Numeric channel transformation (multiplier, offset, range remap).'}
                   {op.type === 'outWindow' && 'Final master render window, high-res snapshot, and WebM video recorder.'}

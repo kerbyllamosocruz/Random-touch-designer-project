@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { graphEngine } from './engine/graph/GraphEngine.js';
 import { mediaService } from './engine/video/MediaService.js';
-import { audioEngine } from './engine/audio/AudioEngine.js';
 import { onnxService } from './engine/onnx/OnnxRuntimeService.js';
 import { Header } from './components/Header.jsx';
 import { NodeCanvas } from './components/NodeCanvas.jsx';
@@ -9,6 +8,7 @@ import { ParametersPane } from './components/ParametersPane.jsx';
 import { TimelineBar } from './components/TimelineBar.jsx';
 import { OpCreateDialog } from './components/OpCreateDialog.jsx';
 import { OutModal } from './components/OutModal.jsx';
+import { LiveHeroMonitor } from './components/LiveHeroMonitor.jsx';
 
 export default function App() {
   const [engineState, setEngineState] = useState({
@@ -25,7 +25,6 @@ export default function App() {
   const [isOutModalOpen, setIsOutModalOpen] = useState(false);
   const [activePreset, setActivePreset] = useState('hand_gesture_studio');
   const [isWebcamActive, setIsWebcamActive] = useState(false);
-  const [isAudioActive, setIsAudioActive] = useState(true);
   const [provider, setProvider] = useState('wasm');
 
   // Initialize engine and load default preset on mount
@@ -42,14 +41,11 @@ export default function App() {
 
     graphEngine.loadPreset('hand_gesture_studio');
     graphEngine.startLoop();
-    audioEngine.startSynth(); // start soft synth beat for immediate reactivity
 
     return () => {
       unsubscribe();
       graphEngine.stopLoop();
       mediaService.stopWebcam();
-      audioEngine.stopSynth();
-      audioEngine.stopMicrophone();
     };
   }, []);
 
@@ -101,18 +97,6 @@ export default function App() {
     }
   };
 
-  // Toggle Audio
-  const handleToggleAudio = async () => {
-    if (isAudioActive) {
-      audioEngine.stopSynth();
-      audioEngine.stopMicrophone();
-      setIsAudioActive(false);
-    } else {
-      audioEngine.startSynth();
-      setIsAudioActive(true);
-    }
-  };
-
   // Handle Provider Change
   const handleChangeProvider = (newProvider) => {
     setProvider(newProvider);
@@ -120,8 +104,8 @@ export default function App() {
   };
 
   const selectedNode = selectedNodeId ? graphEngine.getNode(selectedNodeId) : null;
-  const outNode = engineState.nodes.find((n) => n.type === 'outWindow');
-  const masterOutCanvas = outNode ? graphEngine.nodeCanvases.get(outNode.id) : null;
+  const outputNode = engineState.nodes.find((n) => n.type === 'handActionFX') || engineState.nodes.find((n) => n.type === 'outWindow');
+  const masterOutCanvas = outputNode ? graphEngine.nodeCanvases.get(outputNode.id) : null;
 
   return (
     <div className="app-container" id="touch-designer-app">
@@ -137,8 +121,6 @@ export default function App() {
         onSelectPreset={handleSelectPreset}
         isWebcamActive={isWebcamActive}
         onToggleWebcam={handleToggleWebcam}
-        isAudioActive={isAudioActive}
-        onToggleAudio={handleToggleAudio}
       />
 
       {/* Main Node Graph Workspace & Parameters Inspector */}
@@ -155,6 +137,13 @@ export default function App() {
           connections={engineState.connections}
           nodeCanvases={graphEngine.nodeCanvases}
           nodeChannels={graphEngine.nodeChannels}
+        />
+
+        {/* Live Hero Viewport Monitor for handActionFX Master Output */}
+        <LiveHeroMonitor
+          outputCanvas={masterOutCanvas}
+          nodeName={outputNode?.name || 'handActionFX'}
+          onMaximize={() => setIsOutModalOpen(true)}
         />
 
         {isParamsOpen && (
@@ -180,7 +169,6 @@ export default function App() {
           graphEngine.frame = f;
           setEngineState((prev) => ({ ...prev, frame: f }));
         }}
-        audioMetrics={audioEngine.metrics}
         provider={provider}
         onChangeProvider={handleChangeProvider}
       />

@@ -49,7 +49,7 @@ export function NodeTile({
   return (
     <div
       id={`node-${node.id}`}
-      className={`node-tile ${isSelected ? 'selected' : ''} ${node.bypassed ? 'bypassed' : ''}`}
+      className={`node-tile ${isSelected ? 'selected' : ''} ${node.bypassed ? 'bypassed' : ''} ${node.type === 'handActionFX' ? 'master-output' : ''}`}
       style={{
         left: `${node.position.x}px`,
         top: `${node.position.y}px`,
@@ -64,15 +64,23 @@ export function NodeTile({
       <div
         className="node-header"
         onMouseDown={handleMouseDownHeader}
-        style={{ borderTop: `2px solid ${cat.color}` }}
+        style={{ borderTop: `2px solid ${node.type === 'handActionFX' ? '#f59e0b' : cat.color}` }}
       >
         <div className="node-header-left">
-          <span className="op-category-tag" style={{ backgroundColor: cat.color }}>
-            {cat.id}
+          <span
+            className="op-category-tag"
+            style={{
+              backgroundColor: node.type === 'handActionFX' ? '#f59e0b' : cat.color
+            }}
+          >
+            {node.type === 'handActionFX' ? 'OUT' : cat.id}
           </span>
           <span className="node-title" title={node.name}>
             {node.name}
           </span>
+          {node.type === 'handActionFX' && (
+            <span className="master-output-badge">[MASTER OUT]</span>
+          )}
         </div>
 
         <div className="node-header-actions">
@@ -143,7 +151,7 @@ export function NodeTile({
               </div>
             )}
             <div className="chop-numeric-readout">
-              {channelData?.beat > 0.5 ? '💥 BEAT' : `VAL: ${(channelData?.val || channelData?.energy || 0).toFixed(2)}`}
+              {channelData?.beat > 0.5 ? 'ACTIVE' : `VAL: ${(channelData?.val || channelData?.energy || 0).toFixed(2)}`}
             </div>
           </div>
         ) : (
