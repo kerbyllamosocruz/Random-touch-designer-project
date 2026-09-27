@@ -217,11 +217,16 @@ export class HandGestureDetector {
     const pinkyTip = landmarks[20];
 
     // Distance from wrist to tips vs joints to determine extension
-    const indexExt = this.dist(indexTip, wrist) > this.dist(landmarks[6], wrist) * 1.2;
-    const middleExt = this.dist(middleTip, wrist) > this.dist(landmarks[10], wrist) * 1.2;
-    const ringExt = this.dist(ringTip, wrist) > this.dist(landmarks[14], wrist) * 1.2;
-    const pinkyExt = this.dist(pinkyTip, wrist) > this.dist(landmarks[18], wrist) * 1.2;
+    const indexExt = this.dist(indexTip, wrist) > this.dist(landmarks[6], wrist) * 1.15;
+    const middleExt = this.dist(middleTip, wrist) > this.dist(landmarks[10], wrist) * 1.15;
+    const ringExt = this.dist(ringTip, wrist) > this.dist(landmarks[14], wrist) * 1.15;
+    const pinkyExt = this.dist(pinkyTip, wrist) > this.dist(landmarks[18], wrist) * 1.15;
     const thumbExt = this.dist(thumbTip, landmarks[17]) > this.dist(landmarks[2], landmarks[17]) * 1.25;
+
+    // Robust Peace Sign (✌️): Index & Middle extended, Ring & Pinky curled
+    const isPeace = indexExt && middleExt &&
+      (!ringExt || this.dist(ringTip, wrist) < this.dist(middleTip, wrist) * 0.82) &&
+      (!pinkyExt || this.dist(pinkyTip, wrist) < this.dist(middleTip, wrist) * 0.82);
 
     const fingers = [thumbExt, indexExt, middleExt, ringExt, pinkyExt];
     const fingerCount = fingers.filter(Boolean).length;
@@ -259,12 +264,12 @@ export class HandGestureDetector {
       gestureKey = 'pinch';
     } else if (fingerCount === 0 || (!indexExt && !middleExt && !ringExt && !pinkyExt && !thumbExt)) {
       gestureKey = 'fist';
+    } else if (isPeace) {
+      gestureKey = 'peace';
     } else if (fingerCount === 5) {
       gestureKey = 'open_palm';
     } else if (indexExt && !middleExt && !ringExt && !pinkyExt) {
       gestureKey = 'pointing';
-    } else if (indexExt && middleExt && !ringExt && !pinkyExt) {
-      gestureKey = 'peace';
     } else if (indexExt && pinkyExt && !middleExt && !ringExt) {
       gestureKey = 'rock';
     } else if (thumbExt && !indexExt && !middleExt && !ringExt && !pinkyExt) {

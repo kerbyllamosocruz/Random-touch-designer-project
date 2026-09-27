@@ -105,7 +105,7 @@ export class PalmDetector {
   /**
    * Runs palm detection on an input source canvas or video
    */
-  async detect(sourceElement, minScore = 0.55) {
+  async detect(sourceElement, minScore = 0.70, minSize = 0.10) {
     if (!this.session) {
       await this.load();
     }
@@ -122,20 +122,24 @@ export class PalmDetector {
     for (let i = 0; i < scores.length; i++) {
       const s = this.sigmoid(scores[i]);
       if (s > minScore && s > bestScore) {
-        bestScore = s;
         const a = this.anchors[i];
         const r = i * 18;
-        const dx = regressors[r] / 128;
-        const dy = regressors[r + 1] / 128;
         const w = regressors[r + 2] / 128;
         const h = regressors[r + 3] / 128;
-        best = {
-          cx: a.x + dx,
-          cy: a.y + dy,
-          w: Math.max(0.08, w),
-          h: Math.max(0.08, h),
-          score: s
-        };
+
+        // Reject tiny noise or facial false positives (a real palm is at least 10% of frame)
+        if (w >= minSize && h >= minSize) {
+          bestScore = s;
+          const dx = regressors[r] / 128;
+          const dy = regressors[r + 1] / 128;
+          best = {
+            cx: a.x + dx,
+            cy: a.y + dy,
+            w: Math.max(0.10, w),
+            h: Math.max(0.10, h),
+            score: s
+          };
+        }
       }
     }
 

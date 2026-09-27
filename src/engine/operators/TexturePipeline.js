@@ -8,6 +8,8 @@ export class TexturePipeline {
     this.contexts = new Map();
     this.feedbackBuffers = new Map(); // nodeId -> HTMLCanvasElement
     this.glslPrograms = new Map(); // nodeId -> { gl, program, textures, ... }
+    this.scratchCanvas = typeof document !== 'undefined' ? document.createElement('canvas') : null;
+    this.scratchCtx = this.scratchCanvas ? this.scratchCanvas.getContext('2d') : null;
   }
 
   getBuffer(nodeId, width = 640, height = 360) {
@@ -162,6 +164,22 @@ export class TexturePipeline {
   processChromatic(inCanvas, params, outCanvas, outCtx) {
     const w = inCanvas.width;
     const h = inCanvas.height;
+
+    // Guard against inCanvas === outCanvas self-overwrite
+    let src = inCanvas;
+    if (inCanvas === outCanvas) {
+      if (!this.scratchCanvas && typeof document !== 'undefined') {
+        this.scratchCanvas = document.createElement('canvas');
+        this.scratchCtx = this.scratchCanvas.getContext('2d');
+      }
+      if (this.scratchCanvas) {
+        this.scratchCanvas.width = w;
+        this.scratchCanvas.height = h;
+        this.scratchCtx.drawImage(inCanvas, 0, 0);
+        src = this.scratchCanvas;
+      }
+    }
+
     outCanvas.width = w;
     outCanvas.height = h;
 
@@ -179,18 +197,18 @@ export class TexturePipeline {
     outCtx.globalCompositeOperation = 'screen';
     outCtx.save();
     outCtx.translate(dx, dy);
-    outCtx.drawImage(inCanvas, 0, 0);
+    outCtx.drawImage(src, 0, 0);
     outCtx.restore();
 
     // Blue/Green Channel
     outCtx.save();
     outCtx.translate(-dx, -dy);
-    outCtx.drawImage(inCanvas, 0, 0);
+    outCtx.drawImage(src, 0, 0);
     outCtx.restore();
 
     // Center base
     outCtx.globalAlpha = 0.6;
-    outCtx.drawImage(inCanvas, 0, 0);
+    outCtx.drawImage(src, 0, 0);
     outCtx.restore();
   }
 
@@ -450,8 +468,20 @@ export class TexturePipeline {
 
     } else if (gesture === 'peace') {
       // ✌️ 4. Dual Mirror Kaleidoscope & Rainbow Split
-      this.processKaleidoscope(inCanvas, { segments: 8, zoom: 1.05, rotation: 45 }, outCanvas, outCtx);
-      this.processChromatic(outCanvas, { offset: 20, angle: 90 }, outCanvas, outCtx);
+      if (!this.scratchCanvas && typeof document !== 'undefined') {
+        this.scratchCanvas = document.createElement('canvas');
+        this.scratchCtx = this.scratchCanvas.getContext('2d');
+      }
+      if (this.scratchCanvas) {
+        this.scratchCanvas.width = w;
+        this.scratchCanvas.height = h;
+        // Step 1: Render 6-segment kaleidoscope to offscreen buffer
+        this.processKaleidoscope(inCanvas, { segments: 6, zoom: 1.15, rotation: 30 + (t * 20) % 360 }, this.scratchCanvas, this.scratchCtx);
+        // Step 2: Apply chromatic split into output canvas
+        this.processChromatic(this.scratchCanvas, { offset: 22, angle: 45 }, outCanvas, outCtx);
+      } else {
+        this.processKaleidoscope(inCanvas, { segments: 6, zoom: 1.15, rotation: 30 }, outCanvas, outCtx);
+      }
 
     } else if (gesture === 'pinch') {
       // 🤏 5. Dynamic Pinch Zoom & Optical Lens Warp

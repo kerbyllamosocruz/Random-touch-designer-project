@@ -265,65 +265,73 @@ class OnnxRuntimeService {
     state.frameCount++;
 
     // 1. Palm Detection & Hand ROI localization
-    const needsPalmDetect = !state.roi || state.lostFrames > 2 || (state.frameCount % 20 === 0);
+    // Verify a real human palm is in the scene (score >= 0.70, size >= 0.10)
+    const shouldDetectPalm = !state.roi || state.lostFrames > 0 || (state.frameCount % 4 === 0);
 
-    if (needsPalmDetect) {
+    if (shouldDetectPalm) {
       try {
-        const palm = await palmDetector.detect(sourceElement, 0.50);
+        const palm = await palmDetector.detect(sourceElement, 0.70, 0.10);
         if (palm) {
           const newRoi = palmDetector.getHandRoi(palm);
           if (state.roi) {
             state.roi = {
-              x: state.roi.x * 0.4 + newRoi.x * 0.6,
-              y: state.roi.y * 0.4 + newRoi.y * 0.6,
-              w: state.roi.w * 0.4 + newRoi.w * 0.6,
-              h: state.roi.h * 0.4 + newRoi.h * 0.6
+              x: state.roi.x * 0.3 + newRoi.x * 0.7,
+              y: state.roi.y * 0.3 + newRoi.y * 0.7,
+              w: state.roi.w * 0.3 + newRoi.w * 0.7,
+              h: state.roi.h * 0.3 + newRoi.h * 0.7
             };
           } else {
             state.roi = newRoi;
           }
           state.lostFrames = 0;
-        } else if (!state.roi) {
-          // No hand in frame: render clear background with awaiting HUD
-          ctx.drawImage(sourceElement, 0, 0, outWidth, outHeight);
-          const duration = performance.now() - startTime;
-          this.lastInferenceTime = duration;
-
-          const emptyAnalysis = handGestureDetector.analyze(null, 0);
-          handGestureDetector.renderSkeleton(ctx, emptyAnalysis, outWidth, outHeight);
-
-          return {
-            canvas: this.outputCanvas,
-            type: 'hand_pose',
-            inferenceMs: duration,
-            analysis: emptyAnalysis,
-            channels: {
-              detected: 0.0,
-              gesture: 'none',
-              gestureName: 'No Hand Detected',
-              effect: 'AWAITING HAND MOVEMENT',
-              fingerCount: 0,
-              thumbExt: 0,
-              indexExt: 0,
-              middleExt: 0,
-              ringExt: 0,
-              pinkyExt: 0,
-              indexX: 0.5,
-              indexY: 0.5,
-              thumbX: 0.5,
-              thumbY: 0.5,
-              wristX: 0.5,
-              wristY: 0.5,
-              pinchDist: 1.0,
-              isPinching: 0.0,
-              handSpeed: 0.0,
-              swipe: 'none'
-            }
-          };
+        } else {
+          state.lostFrames++;
+          if (state.lostFrames >= 2 || !state.roi) {
+            state.roi = null;
+          }
         }
       } catch (err) {
         console.warn('[HandTracker] Palm detection error:', err);
       }
+    }
+
+    // If no validated hand ROI exists: immediately render clear background with awaiting HUD
+    if (!state.roi) {
+      ctx.drawImage(sourceElement, 0, 0, outWidth, outHeight);
+      const duration = performance.now() - startTime;
+      this.lastInferenceTime = duration;
+
+      const emptyAnalysis = handGestureDetector.analyze(null, 0);
+      handGestureDetector.renderSkeleton(ctx, emptyAnalysis, outWidth, outHeight);
+
+      return {
+        canvas: this.outputCanvas,
+        type: 'hand_pose',
+        inferenceMs: duration,
+        analysis: emptyAnalysis,
+        channels: {
+          detected: 0.0,
+          gesture: 'none',
+          gestureName: 'No Hand Detected',
+          effect: 'AWAITING HAND MOVEMENT',
+          fingerCount: 0,
+          thumbExt: 0,
+          indexExt: 0,
+          middleExt: 0,
+          ringExt: 0,
+          pinkyExt: 0,
+          indexX: 0.5,
+          indexY: 0.5,
+          thumbX: 0.5,
+          thumbY: 0.5,
+          wristX: 0.5,
+          wristY: 0.5,
+          pinchDist: 1.0,
+          isPinching: 0.0,
+          handSpeed: 0.0,
+          swipe: 'none'
+        }
+      };
     }
 
     // 2. Crop Hand ROI for hand_landmark.onnx
@@ -363,9 +371,7 @@ class OnnxRuntimeService {
 
     let analysis;
 
-    if (score >= 0.55 && rawLandmarks && rawLandmarks.length >= 63) {
-      state.lostFrames = 0;
-
+    if (score >= 0.70 && rawLandmarks && rawLandmarks.length >= 63) {
       // Map landmarks from crop space [0, 1] back to full image space [0, 1]
       const landmarks = [];
       let minX = 1.0, maxX = 0.0, minY = 1.0, maxY = 0.0;
@@ -386,31 +392,41 @@ class OnnxRuntimeService {
         landmarks.push({ x: fx, y: fy, z: lz });
       }
 
-      // Enforce strict anatomical bounds (guarantees thumb or fingers cannot snap to head or background)
-      const cleaned = handGestureDetector.cleanLandmarks(landmarks);
-
-      // Smoothly update ROI tracking for next frame with margin
       const bboxW = maxX - minX;
       const bboxH = maxY - minY;
-      const pad = Math.max(0.05, Math.max(bboxW, bboxH) * 0.35);
-      const targetRoi = {
-        x: Math.max(0, minX - pad),
-        y: Math.max(0, minY - pad),
-        w: Math.min(1.0 - Math.max(0, minX - pad), bboxW + pad * 2),
-        h: Math.min(1.0 - Math.max(0, minY - pad), bboxH + pad * 2)
-      };
 
-      state.roi = {
-        x: state.roi.x * 0.5 + targetRoi.x * 0.5,
-        y: state.roi.y * 0.5 + targetRoi.y * 0.5,
-        w: state.roi.w * 0.5 + targetRoi.w * 0.5,
-        h: state.roi.h * 0.5 + targetRoi.h * 0.5
-      };
+      // Reject phantom detections smaller than 10% of the screen
+      if (bboxW >= 0.10 && bboxH >= 0.10) {
+        state.lostFrames = 0;
 
-      analysis = handGestureDetector.analyze(cleaned, score);
+        // Enforce strict anatomical bounds (guarantees thumb or fingers cannot snap to head or background)
+        const cleaned = handGestureDetector.cleanLandmarks(landmarks);
+
+        // Smoothly update ROI tracking for next frame with margin
+        const pad = Math.max(0.05, Math.max(bboxW, bboxH) * 0.35);
+        const targetRoi = {
+          x: Math.max(0, minX - pad),
+          y: Math.max(0, minY - pad),
+          w: Math.min(1.0 - Math.max(0, minX - pad), bboxW + pad * 2),
+          h: Math.min(1.0 - Math.max(0, minY - pad), bboxH + pad * 2)
+        };
+
+        state.roi = {
+          x: state.roi.x * 0.5 + targetRoi.x * 0.5,
+          y: state.roi.y * 0.5 + targetRoi.y * 0.5,
+          w: state.roi.w * 0.5 + targetRoi.w * 0.5,
+          h: state.roi.h * 0.5 + targetRoi.h * 0.5
+        };
+
+        analysis = handGestureDetector.analyze(cleaned, score);
+      } else {
+        state.lostFrames++;
+        if (state.lostFrames >= 2) state.roi = null;
+        analysis = handGestureDetector.analyze(null, 0);
+      }
     } else {
       state.lostFrames++;
-      if (state.lostFrames > 3) {
+      if (state.lostFrames >= 2) {
         state.roi = null; // Re-detect palm on next frame
       }
       analysis = handGestureDetector.analyze(null, 0);

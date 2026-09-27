@@ -178,19 +178,38 @@ export const OPERATOR_DEFINITIONS = {
     }
   },
 
-  // === AI / ONNX Operators ===
+  // === AI / Machine Learning Operators ===
+  mediaPipeHand: {
+    type: 'mediaPipeHand',
+    category: 'AI',
+    name: 'mediaPipeHand',
+    label: 'MediaPipe Hand Tracker',
+    inputs: [{ id: 'in1', label: 'Image In', type: 'texture' }],
+    outputs: [
+      { id: 'out1', label: 'Output Texture', type: 'texture' },
+      { id: 'chanOut', label: 'Hand CHOP', type: 'channel' }
+    ],
+    defaultParams: {
+      maxHands: 2,
+      overlayMode: 'composite', // 'composite', 'skeleton_only', 'clean'
+      minConfidence: 0.5,
+      delegate: 'GPU',
+      interval: 1
+    }
+  },
+
   onnxModel: {
     type: 'onnxModel',
     category: 'AI',
     name: 'onnxModel',
-    label: 'ONNX Hand & Vision AI',
+    label: 'ONNX Neural Operator',
     inputs: [{ id: 'in1', label: 'Image In', type: 'texture' }],
     outputs: [
       { id: 'out1', label: 'Output Texture', type: 'texture' },
       { id: 'chanOut', label: 'ONNX Channels', type: 'channel' }
     ],
     defaultParams: {
-      modelId: 'hand_landmark', // 'hand_landmark', 'selfie_segmentation', 'sobel_edge', 'neural_filter', 'squeezenet', 'custom'
+      modelId: 'selfie_segmentation', // 'selfie_segmentation', 'sobel_edge', 'neural_filter', 'squeezenet', 'custom', 'hand_landmark'
       mode: 'matte', // 'matte', 'cutout', 'glow'
       threshold: 0.5,
       invert: false,

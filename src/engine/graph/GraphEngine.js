@@ -2,6 +2,7 @@ import { OPERATOR_DEFINITIONS } from '../nodes/NodeDefinitions.js';
 import { texturePipeline } from '../operators/TexturePipeline.js';
 import { glslRunner, DEFAULT_GLSL_SHADERS } from '../operators/GlslRunner.js';
 import { onnxService } from '../onnx/OnnxRuntimeService.js';
+import { mediaPipeService } from '../mediapipe/MediaPipeService.js';
 import { audioEngine } from '../audio/AudioEngine.js';
 import { mediaService } from '../video/MediaService.js';
 
@@ -21,6 +22,7 @@ export class GraphEngine {
     this.rafId = null;
     this.subscribers = new Set();
     this.onnxPending = new Set(); // nodeIds currently running async ONNX inference
+    this.mediaPipePending = new Set(); // nodeIds currently running async MediaPipe inference
 
     // Active preset
     this.activePresetId = 'hand_gesture_studio';
@@ -260,6 +262,41 @@ export class GraphEngine {
           break;
         }
 
+        case 'mediaPipeHand': {
+          const inCanvas = this.getIncomingCanvas(nodeId, 'in1');
+          if (inCanvas) {
+            if (!this.mediaPipePending.has(nodeId)) {
+              if (this.frame % (node.params.interval || 1) === 0) {
+                this.mediaPipePending.add(nodeId);
+                mediaPipeService.detect(inCanvas, node.params)
+                  .then(result => {
+                    if (result && result.canvas) {
+                      ctx.clearRect(0, 0, canvas.width, canvas.height);
+                      ctx.drawImage(result.canvas, 0, 0, canvas.width, canvas.height);
+                      if (result.channels) {
+                        this.nodeChannels.set(nodeId, result.channels);
+                      }
+                      node.status.ms = Math.round(result.inferenceMs);
+                    }
+                  })
+                  .catch(err => {
+                    console.warn(`[MediaPipe] Inference error in node ${nodeId}:`, err);
+                  })
+                  .finally(() => {
+                    this.mediaPipePending.delete(nodeId);
+                  });
+              }
+            }
+          } else {
+            ctx.fillStyle = '#181824';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#06b6d4';
+            ctx.font = '12px "JetBrains Mono", monospace';
+            ctx.fillText('MEDIAPIPE: Connect a Video/Texture Input', 20, canvas.height / 2);
+          }
+          break;
+        }
+
         case 'onnxModel': {
           const inCanvas = this.getIncomingCanvas(nodeId, 'in1');
           if (inCanvas) {
@@ -449,7 +486,7 @@ export class GraphEngine {
       }
 
       const elapsed = performance.now() - startTime;
-      if (node.type !== 'onnxModel') {
+      if (node.type !== 'onnxModel' && node.type !== 'mediaPipeHand') {
         node.status.ms = parseFloat(elapsed.toFixed(1));
       }
     }
@@ -466,16 +503,16 @@ export class GraphEngine {
     this.activePresetId = presetId;
 
     if (presetId === 'hand_gesture_studio' || presetId === 'ai_segmentation') {
-      // 1. ONNX Hand & Finger Movement Gesture Studio (Different visual results for each gesture!)
+      // 1. MediaPipe Hand & Finger Movement Gesture Studio (Different visual results for each gesture!)
       const videoIn = this.createNode('videoIn', { x: 60, y: 140 }, { source: 'webcam', mirror: true, presetLoop: 'cyber_grid' });
-      const onnx = this.createNode('onnxModel', { x: 320, y: 140 }, { modelId: 'hand_landmark' });
+      const mpHand = this.createNode('mediaPipeHand', { x: 320, y: 140 }, { maxHands: 2, overlayMode: 'composite' });
       const handFX = this.createNode('handActionFX', { x: 580, y: 140 }, { intensity: 1.0 });
       const feedback = this.createNode('feedback', { x: 840, y: 140 }, { decay: 0.86, zoom: 1.015, rotate: 0.005, blendMode: 'source-over' });
       const out = this.createNode('outWindow', { x: 1100, y: 140 });
 
-      this.connect(videoIn.id, 'out1', onnx.id, 'in1');
-      this.connect(onnx.id, 'out1', handFX.id, 'in1');
-      this.connect(onnx.id, 'chanOut', handFX.id, 'chanIn');
+      this.connect(videoIn.id, 'out1', mpHand.id, 'in1');
+      this.connect(mpHand.id, 'out1', handFX.id, 'in1');
+      this.connect(mpHand.id, 'chanOut', handFX.id, 'chanIn');
       this.connect(handFX.id, 'out1', feedback.id, 'in1');
       this.connect(feedback.id, 'out1', out.id, 'in1');
 
