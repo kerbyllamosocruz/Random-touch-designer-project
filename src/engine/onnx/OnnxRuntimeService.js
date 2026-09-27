@@ -3,6 +3,7 @@ import { BUILTIN_MODELS } from './BuiltinModels.js';
 import { getClassName } from './imagenetLabels.js';
 import { handGestureDetector } from './HandGestureDetector.js';
 import { palmDetector } from './PalmDetector.js';
+import { mediaPipeService } from '../mediapipe/MediaPipeService.js';
 
 // Setup ORT Wasm paths
 try {
@@ -213,10 +214,14 @@ class OnnxRuntimeService {
 
     const { session, meta, inputNames, outputNames } = sessionInfo;
 
-    // Hand pose detection uses specialized two-stage Hand ROI tracking
-    // (BlazePalm detector + Hand Landmark) to guarantee zero head/face false positives
+    // Hand pose detection uses MediaPipe HandLandmarker with fallback
     if (meta.type === 'hand_pose') {
-      return await this.runHandTrackingPipeline(sessionInfo, sourceElement, params);
+      try {
+        return await mediaPipeService.detect(sourceElement, params);
+      } catch (err) {
+        console.warn('[ORT] Hand pose delegating to local ONNX pipeline fallback:', err);
+        return await this.runHandTrackingPipeline(sessionInfo, sourceElement, params);
+      }
     }
 
     const inputName = meta.inputName || inputNames[0];

@@ -109,6 +109,168 @@ export function ParametersPane({
       <div className="params-content">
         {activeTab === 'parameters' && (
           <>
+            {/* === MEDIAPIPE HAND TRACKER OPERATOR === */}
+            {node.type === 'mediaPipeHand' && (
+              <>
+                <div className="param-group">
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#38bdf8', letterSpacing: '0.5px' }}>
+                      MEDIAPIPE HANDLANDMARKER
+                    </span>
+                    <span style={{ fontSize: '10px', background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', padding: '2px 8px', borderRadius: '10px', border: '1px solid rgba(56, 189, 248, 0.3)', fontFamily: 'var(--font-mono)' }}>
+                      {params.delegate || 'GPU'} ACCELERATED
+                    </span>
+                  </div>
+                </div>
+
+                <div className="param-group">
+                  <div className="param-label">
+                    <span>Live Gesture & Interaction</span>
+                  </div>
+                  <div style={{ background: '#090d16', padding: '12px', borderRadius: '6px', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>ACTIVE ACTION:</span>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#38bdf8', fontFamily: 'var(--font-mono)' }}>
+                        {channelData?.effect || 'AWAITING HAND'}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '24px' }}>
+                        {channelData?.gesture === 'fist' ? '✊' :
+                         channelData?.gesture === 'open_palm' ? '✋' :
+                         channelData?.gesture === 'pointing' ? '☝️' :
+                         channelData?.gesture === 'peace' ? '✌️' :
+                         channelData?.gesture === 'pinch' ? '🤏' :
+                         channelData?.gesture === 'rock' ? '🤘' :
+                         channelData?.gesture === 'thumbs_up' ? '👍' : '👋'}
+                      </span>
+                      <div>
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#fff' }}>
+                          {channelData?.gestureName || 'Wave hand to camera'}
+                        </div>
+                        <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
+                          {channelData?.detected ? `${channelData.handCount || 1} Hand(s) · ${channelData.handednessName || 'Right'} · Speed: ${channelData.handSpeed?.toFixed(1)}` : 'Camera tracking active'}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Dominant Hand Fingers */}
+                    <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+                      {['Thumb', 'Index', 'Mid', 'Ring', 'Pinky'].map((fName, i) => {
+                        const isExt = [channelData?.thumbExt, channelData?.indexExt, channelData?.middleExt, channelData?.ringExt, channelData?.pinkyExt][i];
+                        return (
+                          <span
+                            key={fName}
+                            style={{
+                              flex: 1,
+                              textAlign: 'center',
+                              fontSize: '9px',
+                              fontFamily: 'var(--font-mono)',
+                              padding: '3px 0',
+                              borderRadius: '3px',
+                              background: isExt ? 'rgba(56, 189, 248, 0.25)' : 'rgba(255,255,255,0.05)',
+                              color: isExt ? '#38bdf8' : 'var(--text-dim)',
+                              border: isExt ? '1px solid #0284c7' : '1px solid transparent'
+                            }}
+                          >
+                            {fName}
+                          </span>
+                        );
+                      })}
+                    </div>
+
+                    {/* Pinch Meter */}
+                    <div style={{ marginTop: '4px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: 'var(--text-dim)', marginBottom: '3px' }}>
+                        <span>PINCH DISTANCE</span>
+                        <span>{channelData?.pinchDist ? `${(channelData.pinchDist * 100).toFixed(0)}%` : '100%'}</span>
+                      </div>
+                      <div style={{ width: '100%', height: '4px', background: '#1e293b', borderRadius: '2px', overflow: 'hidden' }}>
+                        <div
+                          style={{
+                            width: `${Math.min(100, Math.max(0, (channelData?.pinchDist || 1.0) * 100))}%`,
+                            height: '100%',
+                            background: channelData?.isPinching ? '#f59e0b' : '#38bdf8',
+                            transition: 'width 0.05s ease'
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Hand 2 Info if present */}
+                    {channelData?.hand2_detected ? (
+                      <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '6px', marginTop: '2px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10px' }}>
+                        <span style={{ color: '#ec4899', fontWeight: 600 }}>✋ HAND 2: {channelData.hand2_gesture?.toUpperCase()}</span>
+                        <span style={{ color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>Span: {Math.round(channelData.twoHandDist * 100)}%</span>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="param-group">
+                  <div className="param-label">
+                    <span>Visual Overlay Mode</span>
+                  </div>
+                  <select
+                    className="select-dropdown"
+                    value={params.overlayMode || 'composite'}
+                    onChange={(e) => handleChange('overlayMode', e.target.value)}
+                  >
+                    <option value="composite">Composite (Video + Glowing Skeleton & FX)</option>
+                    <option value="skeleton_only">Skeleton Only (Cyber Canvas Overlay)</option>
+                    <option value="clean">Clean Video (Pass-through with CHOP channels)</option>
+                  </select>
+                </div>
+
+                <div className="param-group">
+                  <div className="param-label">
+                    <span>Max Hands Tracked</span>
+                    <span className="param-value">{params.maxHands || 2}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="2"
+                    step="1"
+                    className="range-slider"
+                    value={params.maxHands || 2}
+                    onChange={(e) => handleChange('maxHands', parseInt(e.target.value, 10))}
+                  />
+                </div>
+
+                <div className="param-group">
+                  <div className="param-label">
+                    <span>Hardware Delegate</span>
+                  </div>
+                  <select
+                    className="select-dropdown"
+                    value={params.delegate || 'GPU'}
+                    onChange={(e) => handleChange('delegate', e.target.value)}
+                  >
+                    <option value="GPU">GPU (WebGL / WebGPU Hardware Accelerated)</option>
+                    <option value="CPU">CPU (WASM SIMD Multi-threaded)</option>
+                  </select>
+                </div>
+
+                <div className="param-group">
+                  <div className="param-label">
+                    <span>Inference Interval</span>
+                    <span className="param-value">Every {params.interval || 1} frame</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="4"
+                    step="1"
+                    className="range-slider"
+                    value={params.interval || 1}
+                    onChange={(e) => handleChange('interval', parseInt(e.target.value, 10))}
+                  />
+                </div>
+              </>
+            )}
+
             {/* === ONNX MODEL OPERATOR === */}
             {node.type === 'onnxModel' && (
               <>

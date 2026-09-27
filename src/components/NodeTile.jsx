@@ -151,7 +151,11 @@ export function NodeTile({
           <>
             <canvas ref={previewCanvasRef} className="node-preview-canvas" />
             <div className="node-preview-overlay">
-              {node.type === 'onnxModel' ? `${node.status.ms}ms AI` : 'LIVE'}
+              {node.type === 'mediaPipeHand'
+                ? `${node.status.ms}ms MP`
+                : node.type === 'onnxModel'
+                ? `${node.status.ms}ms AI`
+                : 'LIVE'}
             </div>
           </>
         )}
