@@ -4,8 +4,7 @@ import { BUILTIN_MODELS } from '../engine/onnx/BuiltinModels.js';
 import { DEFAULT_GLSL_SHADERS } from '../engine/operators/GlslRunner.js';
 import { onnxService } from '../engine/onnx/OnnxRuntimeService.js';
 import { mediaService } from '../engine/video/MediaService.js';
-import { audioEngine } from '../engine/audio/AudioEngine.js';
-import { X, Sliders, Upload, Play, Pause, Camera } from 'lucide-react';
+import { X, Sliders, Upload, Play, Pause, Camera, Hand, Target } from 'lucide-react';
 
 export function ParametersPane({
   node,
@@ -135,22 +134,25 @@ export function ParametersPane({
                       </span>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '24px' }}>
-                        {channelData?.gesture === 'fist' ? '✊' :
-                         channelData?.gesture === 'open_palm' ? '✋' :
-                         channelData?.gesture === 'pointing' ? '☝️' :
-                         channelData?.gesture === 'peace' ? '✌️' :
-                         channelData?.gesture === 'pinch' ? '🤏' :
-                         channelData?.gesture === 'rock' ? '🤘' :
-                         channelData?.gesture === 'thumbs_up' ? '👍' : '👋'}
-                      </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div style={{
+                        width: '32px',
+                        height: '32px',
+                        background: 'rgba(198, 255, 0, 0.12)',
+                        border: '1px solid var(--accent-sharp)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--accent-sharp)'
+                      }}>
+                        <Hand size={16} />
+                      </div>
                       <div>
-                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#fff' }}>
-                          {channelData?.gestureName || 'Wave hand to camera'}
+                        <div style={{ fontSize: '12px', fontWeight: 700, color: '#fff', fontFamily: 'var(--font-mono)', letterSpacing: '0.04em' }}>
+                          [{channelData?.gesture ? channelData.gesture.toUpperCase() : 'SEARCHING'}] {channelData?.gestureName || 'Awaiting Hand Feed'}
                         </div>
                         <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
-                          {channelData?.detected ? `${channelData.handCount || 1} Hand(s) · ${channelData.handednessName || 'Right'} · Speed: ${channelData.handSpeed?.toFixed(1)}` : 'Camera tracking active'}
+                          {channelData?.detected ? `${channelData.handCount || 1} HAND(S) · ${channelData.handednessName?.toUpperCase() || 'RIGHT'} · SPEED: ${channelData.handSpeed?.toFixed(1)}` : 'CAMERA FEED ACTIVE'}
                         </div>
                       </div>
                     </div>
@@ -201,7 +203,7 @@ export function ParametersPane({
                     {/* Hand 2 Info if present */}
                     {channelData?.hand2_detected ? (
                       <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '6px', marginTop: '2px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10px' }}>
-                        <span style={{ color: '#ec4899', fontWeight: 600 }}>✋ HAND 2: {channelData.hand2_gesture?.toUpperCase()}</span>
+                        <span style={{ color: 'var(--accent-sharp)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>// HAND 2: {channelData.hand2_gesture?.toUpperCase()}</span>
                         <span style={{ color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>Span: {Math.round(channelData.twoHandDist * 100)}%</span>
                       </div>
                     ) : null}
@@ -217,10 +219,36 @@ export function ParametersPane({
                     value={params.overlayMode || 'composite'}
                     onChange={(e) => handleChange('overlayMode', e.target.value)}
                   >
-                    <option value="composite">Composite (Video + Glowing Skeleton & FX)</option>
-                    <option value="skeleton_only">Skeleton Only (Cyber Canvas Overlay)</option>
-                    <option value="clean">Clean Video (Pass-through with CHOP channels)</option>
+                    <option value="composite">Composite (Video + FX)</option>
+                    <option value="skeleton_only">Skeleton Only (Dark Canvas)</option>
+                    <option value="clean">Clean Video (Pass-through)</option>
                   </select>
+                </div>
+
+                {/* === HAND TRACKING OVERLAY TOGGLES === */}
+                <div className="param-group">
+                  <div style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.08em', fontFamily: 'var(--font-mono)', marginBottom: '8px' }}>
+                    OVERLAY LAYERS
+                  </div>
+                  {[
+                    { key: 'showSkeleton',  label: 'Skeleton Bones',       desc: 'Colored gradient bones connecting joints' },
+                    { key: 'showJoints',    label: 'Joint Dots',            desc: 'Circle markers at each of 21 landmarks' },
+                    { key: 'showReticles',  label: 'Fingertip Reticles',    desc: 'Ring + L-IDX / R-IDX label badges on tips' },
+                    { key: 'showGestureFX', label: 'Gesture FX',            desc: 'Fist vortex, palm burst, pointing laser etc.' },
+                  ].map(({ key, label, desc }) => (
+                    <label key={key} className="param-toggle-row" style={{ marginBottom: '6px', cursor: 'pointer' }}>
+                      <div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{label}</div>
+                        <div style={{ fontSize: '9px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>{desc}</div>
+                      </div>
+                      <div
+                        className={`toggle-switch ${params[key] ? 'active' : ''}`}
+                        onClick={() => handleChange(key, !params[key])}
+                      >
+                        <div className="toggle-knob" />
+                      </div>
+                    </label>
+                  ))}
                 </div>
 
                 <div className="param-group">
@@ -305,22 +333,25 @@ export function ParametersPane({
                         </span>
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '24px' }}>
-                          {channelData?.gesture === 'fist' ? '✊' :
-                           channelData?.gesture === 'open_palm' ? '✋' :
-                           channelData?.gesture === 'pointing' ? '☝️' :
-                           channelData?.gesture === 'peace' ? '✌️' :
-                           channelData?.gesture === 'pinch' ? '🤏' :
-                           channelData?.gesture === 'rock' ? '🤘' :
-                           channelData?.gesture === 'thumbs_up' ? '👍' : '👋'}
-                        </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{
+                          width: '32px',
+                          height: '32px',
+                          background: 'rgba(198, 255, 0, 0.12)',
+                          border: '1px solid var(--accent-sharp)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: 'var(--accent-sharp)'
+                        }}>
+                          <Target size={16} />
+                        </div>
                         <div>
-                          <div style={{ fontSize: '13px', fontWeight: 600, color: '#fff' }}>
-                            {channelData?.gestureName || 'Wave hand to camera'}
+                          <div style={{ fontSize: '12px', fontWeight: 700, color: '#fff', fontFamily: 'var(--font-mono)', letterSpacing: '0.04em' }}>
+                            [{channelData?.gesture ? channelData.gesture.toUpperCase() : 'SEARCHING'}] {channelData?.gestureName || 'Awaiting Hand Feed'}
                           </div>
                           <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
-                            {channelData?.detected ? `${channelData.fingerCount} Fingers Up · Speed: ${channelData.handSpeed?.toFixed(1)}` : 'Camera tracking active'}
+                            {channelData?.detected ? `${channelData.fingerCount} FINGERS UP · SPEED: ${channelData.handSpeed?.toFixed(1)}` : 'CAMERA TRACKING ACTIVE'}
                           </div>
                         </div>
                       </div>
@@ -497,44 +528,261 @@ export function ParametersPane({
               </>
             )}
 
-            {/* === HAND ACTION FX OPERATOR === */}
-            {node.type === 'handActionFX' && (
-              <>
-                <div className="param-group">
-                  <div className="param-label">
-                    <span>Reaction Intensity</span>
-                    <span className="val">{params.intensity?.toFixed(1) || '1.0'}x</span>
-                  </div>
-                  <div className="param-slider-row">
-                    <input
-                      type="range"
-                      className="param-slider"
-                      min="0.2"
-                      max="3.0"
-                      step="0.1"
-                      value={params.intensity || 1.0}
-                      onChange={(e) => handleChange('intensity', parseFloat(e.target.value))}
-                    />
-                  </div>
-                </div>
+            {/* === DUAL HAND GLASS PORTAL OPERATOR === */}
+            {node.type === 'handActionFX' && (() => {
+              const af = params.activeFingers || { thumb: true, index: true, middle: true, ring: true, pinky: true };
+              const fingerKeys = ['thumb', 'index', 'middle', 'ring', 'pinky'];
+              const fingerLabels = ['THB', 'IDX', 'MID', 'RNG', 'PNK'];
 
-                <div className="param-group">
-                  <div className="param-label">
-                    <span>Finger & Hand Action Results Guide</span>
+              const toggleFinger = (key) => {
+                const next = { ...af, [key]: !af[key] };
+                handleChange('activeFingers', next);
+              };
+
+              const setPreset = (preset) => {
+                if (preset === 'all') handleChange('activeFingers', { thumb: true, index: true, middle: true, ring: true, pinky: true });
+                else if (preset === 'index') handleChange('activeFingers', { thumb: false, index: true, middle: false, ring: false, pinky: false });
+                else if (preset === 'pinch') handleChange('activeFingers', { thumb: true, index: true, middle: false, ring: false, pinky: false });
+              };
+
+              // SVG hand: normalized viewBox coords for each fingertip hit zone
+              // Left-hand silhouette shown; right mirrors same selection
+              const tipPositions = [
+                { key: 'thumb',  cx: 28,  cy: 55,  label: 'Thumb' },
+                { key: 'index',  cx: 52,  cy: 18,  label: 'Index' },
+                { key: 'middle', cx: 72,  cy: 10,  label: 'Middle' },
+                { key: 'ring',   cx: 91,  cy: 18,  label: 'Ring' },
+                { key: 'pinky',  cx: 108, cy: 34,  label: 'Pinky' },
+              ];
+
+              return (
+                <>
+                  <div className="param-group">
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#38bdf8', letterSpacing: '0.5px' }}>
+                        BIMANUAL HOLOGRAPHIC GLASS
+                      </span>
+                      <span style={{ fontSize: '10px', background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', padding: '2px 8px', border: '1px solid rgba(56, 189, 248, 0.3)', fontFamily: 'var(--font-mono)' }}>
+                        η 1.52 REFRACTION
+                      </span>
+                    </div>
                   </div>
-                  <div style={{ background: '#090d16', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11px' }}>
-                    <div>✊ <strong>Closed Fist:</strong> Gravitational vortex singularity</div>
-                    <div>✋ <strong>Open Palm:</strong> Supernova particle blast & kaleidoscope</div>
-                    <div>☝️ <strong>Index Pointing:</strong> Neon laser stylus follows finger coordinate</div>
-                    <div>✌️ <strong>Peace (2 fingers):</strong> Symmetrical dual mirror prism</div>
-                    <div>🤏 <strong>Thumb-Index Pinch:</strong> Dynamic zoom lens scaling</div>
-                    <div>🤘 <strong>Rock On (Horns):</strong> Electric lightning & strobe glitch</div>
-                    <div>👍 <strong>Thumbs Up:</strong> Spectrum inversion & radioactive glow</div>
-                    <div>👋 <strong>Hand Velocity / Swipe:</strong> Momentum rotation & hue swing</div>
+
+                  {/* === INTERACTIVE FINGER SELECTOR === */}
+                  <div className="param-group">
+                    <div className="param-label" style={{ marginBottom: '10px' }}>
+                      <span>Active Fingertip Connections</span>
+                      <span style={{ fontSize: '9px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
+                        {fingerKeys.filter(k => af[k] !== false).length}/5 ACTIVE
+                      </span>
+                    </div>
+
+                    {/* SVG Hand Diagram */}
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px', position: 'relative' }}>
+                      <svg
+                        viewBox="0 0 140 130"
+                        width="140"
+                        height="130"
+                        style={{ display: 'block' }}
+                        aria-label="Hand fingertip selector"
+                      >
+                        {/* Palm silhouette */}
+                        <path
+                          d="M30 95 Q20 80 22 65 L26 48 Q27 42 32 42 Q37 42 38 48 L38 55
+                             Q44 28 48 18 Q50 12 55 12 Q60 12 62 18 L64 40
+                             Q67 14 70 10 Q72 4 77 4 Q82 4 84 10 L86 38
+                             Q89 20 92 18 Q96 14 100 18 L106 35
+                             Q110 30 112 34 Q116 38 115 45 L112 65
+                             Q115 80 110 95 Q105 115 85 118 L60 118 Q40 118 30 95 Z"
+                          fill="rgba(255,255,255,0.06)"
+                          stroke="rgba(255,255,255,0.18)"
+                          strokeWidth="1.5"
+                        />
+
+                        {/* Finger connection lines (decorative) */}
+                        {tipPositions.map((tp) => (
+                          <line
+                            key={`line-${tp.key}`}
+                            x1={tp.cx} y1={tp.cy}
+                            x2={tp.cx} y2={tp.cy + 25}
+                            stroke={af[tp.key] !== false ? '#c6ff00' : 'rgba(255,255,255,0.12)'}
+                            strokeWidth="1"
+                            strokeDasharray={af[tp.key] !== false ? 'none' : '3 3'}
+                          />
+                        ))}
+
+                        {/* Clickable fingertip nodes */}
+                        {tipPositions.map((tp) => {
+                          const isOn = af[tp.key] !== false;
+                          return (
+                            <g
+                              key={tp.key}
+                              onClick={() => toggleFinger(tp.key)}
+                              style={{ cursor: 'pointer' }}
+                              role="button"
+                              aria-label={`Toggle ${tp.label} finger`}
+                              aria-pressed={isOn}
+                            >
+                              {/* Outer glow ring when active */}
+                              {isOn && (
+                                <circle
+                                  cx={tp.cx} cy={tp.cy}
+                                  r="12"
+                                  fill="none"
+                                  stroke="rgba(198,255,0,0.35)"
+                                  strokeWidth="1"
+                                />
+                              )}
+                              {/* Main circle */}
+                              <circle
+                                cx={tp.cx} cy={tp.cy}
+                                r="9"
+                                fill={isOn ? 'rgba(198,255,0,0.15)' : 'rgba(255,255,255,0.04)'}
+                                stroke={isOn ? '#c6ff00' : 'rgba(255,255,255,0.22)'}
+                                strokeWidth={isOn ? '2' : '1.2'}
+                                strokeDasharray={isOn ? 'none' : '3 2'}
+                              />
+                              {/* Dot / cross indicator */}
+                              {isOn ? (
+                                <circle cx={tp.cx} cy={tp.cy} r="3" fill="#c6ff00" />
+                              ) : (
+                                <>
+                                  <line x1={tp.cx - 3} y1={tp.cy} x2={tp.cx + 3} y2={tp.cy} stroke="rgba(255,255,255,0.3)" strokeWidth="1.2" />
+                                  <line x1={tp.cx} y1={tp.cy - 3} x2={tp.cx} y2={tp.cy + 3} stroke="rgba(255,255,255,0.3)" strokeWidth="1.2" />
+                                </>
+                              )}
+                              {/* Label below */}
+                              <text
+                                x={tp.cx} y={tp.cy + 22}
+                                textAnchor="middle"
+                                fontSize="7"
+                                fill={isOn ? '#c6ff00' : 'rgba(255,255,255,0.3)'}
+                                fontFamily="JetBrains Mono, monospace"
+                                fontWeight={isOn ? '700' : '400'}
+                              >
+                                {fingerLabels[tipPositions.findIndex(t => t.key === tp.key)]}
+                              </text>
+                            </g>
+                          );
+                        })}
+                      </svg>
+                    </div>
+
+                    {/* Preset Buttons */}
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      {[
+                        { id: 'all', label: 'ALL 5' },
+                        { id: 'index', label: 'POINTING' },
+                        { id: 'pinch', label: 'PINCH' },
+                      ].map(p => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => setPreset(p.id)}
+                          style={{
+                            flex: 1,
+                            background: 'rgba(20,22,28,0.9)',
+                            border: '1.5px solid rgba(255,255,255,0.12)',
+                            padding: '5px 4px',
+                            color: '#cbd5e1',
+                            fontSize: '9px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            fontFamily: 'var(--font-mono)',
+                            letterSpacing: '0.04em',
+                          }}
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              </>
-            )}
+
+                  {/* Skeleton & Reticle Toggles */}
+                  <div className="param-group">
+                    <label className="param-toggle-row">
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Show Fingertip Reticles</span>
+                      <div
+                        className={`toggle-switch ${params.showReticles ? 'active' : ''}`}
+                        onClick={() => handleChange('showReticles', !params.showReticles)}
+                      >
+                        <div className="toggle-knob" />
+                      </div>
+                    </label>
+                  </div>
+
+                  <div className="param-group">
+                    <div className="param-label">
+                      <span>Portal Visual Style</span>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                      {[
+                        { id: 'glass_prism',    label: 'PRISM GLASS',     desc: 'Refractive Optics' },
+                        { id: 'halftone_dots',  label: 'HALFTONE MATRIX', desc: 'Pop-Art Dot Grid' },
+                        { id: 'thermal_vision', label: 'THERMAL INFRARED',desc: 'Heat Signature' },
+                        { id: 'cyber_grid',     label: 'CYBER SCANLINE',  desc: 'Holographic Vector' },
+                        { id: 'glitch_rgb',     label: 'VHS GLITCH',      desc: 'RGB Channel Split' },
+                        { id: 'void_rift',      label: 'VOID RIFT',       desc: 'Electric Arc Void' },
+                        { id: 'neon_noir',      label: 'NEON NOIR',       desc: 'Neon Wireframe Trace' },
+                        { id: 'pixelate',       label: 'PIXELATE',        desc: '8-Bit Mosaic' },
+                        { id: 'liquid_chrome',  label: 'LIQUID CHROME',   desc: 'Iridescent Metal' },
+                      ].map(st => (
+                        <button
+                          key={st.id}
+                          type="button"
+                          onClick={() => handleChange('style', st.id)}
+                          style={{
+                            background: (params.style || 'glass_prism') === st.id ? 'var(--accent-sharp)' : 'rgba(20, 22, 28, 0.9)',
+                            border: `1.5px solid ${(params.style || 'glass_prism') === st.id ? 'var(--accent-sharp)' : 'rgba(255,255,255,0.1)'}`,
+                            borderRadius: '0px',
+                            padding: '8px 10px',
+                            color: (params.style || 'glass_prism') === st.id ? '#000' : '#cbd5e1',
+                            fontSize: '11px',
+                            fontWeight: (params.style || 'glass_prism') === st.id ? 800 : 600,
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            fontFamily: 'var(--font-mono)'
+                          }}
+                        >
+                          <div>{st.label}</div>
+                          <div style={{ fontSize: '9px', opacity: 0.8, letterSpacing: '0.02em' }}>{st.desc}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="param-group">
+                    <div className="param-label">
+                      <span>Glass Portal Intensity</span>
+                      <span className="val">{params.intensity?.toFixed(1) || '1.0'}x</span>
+                    </div>
+                    <div className="param-slider-row">
+                      <input
+                        type="range"
+                        className="param-slider"
+                        min="0.2"
+                        max="3.0"
+                        step="0.1"
+                        value={params.intensity || 1.0}
+                        onChange={(e) => handleChange('intensity', parseFloat(e.target.value))}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="param-group">
+                    <div className="param-label">
+                      <span>Active Optical Engine Specs</span>
+                    </div>
+                    <div style={{ background: '#090a0f', padding: '10px', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '10px', fontFamily: 'var(--font-mono)' }}>
+                      <div><span style={{ color: 'var(--accent-sharp)' }}>//</span> <strong>Prism Refractive Optics:</strong> Chromatic dispersion &amp; dynamic zoom between palms</div>
+                      <div><span style={{ color: 'var(--accent-sharp)' }}>//</span> <strong>Tip-To-Tip Lasers:</strong> Straight white connectors between selected fingertips</div>
+                      <div><span style={{ color: 'var(--accent-sharp)' }}>//</span> <strong>Trapped Quantum Dust:</strong> Constellation energy points tracked to hand positions</div>
+                      <div><span style={{ color: 'var(--accent-sharp)' }}>//</span> <strong>Core Singularity:</strong> Gyroscopic rings at centroid between both palms</div>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
 
             {/* === VIDEO IN === */}
             {node.type === 'videoIn' && (
@@ -962,47 +1210,6 @@ export function ParametersPane({
                       <div className="toggle-knob" />
                     </div>
                   </label>
-                </div>
-              </>
-            )}
-
-            {/* === AUDIO IN / ANALYSIS === */}
-            {(node.type === 'audioIn' || node.type === 'audioAnalysis') && (
-              <>
-                <div className="param-group">
-                  <div className="param-label">
-                    <span>Audio Source</span>
-                  </div>
-                  <select
-                    className="select-dropdown"
-                    value={params.source || 'synth'}
-                    onChange={(e) => {
-                      handleChange('source', e.target.value);
-                      if (e.target.value === 'mic') audioEngine.startMicrophone();
-                      else audioEngine.startSynth();
-                    }}
-                  >
-                    <option value="synth">Synthesizer Beat (Built-in)</option>
-                    <option value="mic">Microphone Input</option>
-                  </select>
-                </div>
-
-                <div className="param-group">
-                  <div className="param-label">
-                    <span>Sensitivity</span>
-                    <span className="val">{params.sensitivity?.toFixed(1) || '1.5'}x</span>
-                  </div>
-                  <div className="param-slider-row">
-                    <input
-                      type="range"
-                      className="param-slider"
-                      min="0.5"
-                      max="4.0"
-                      step="0.1"
-                      value={params.sensitivity || 1.5}
-                      onChange={(e) => handleChange('sensitivity', parseFloat(e.target.value))}
-                    />
-                  </div>
                 </div>
               </>
             )}
