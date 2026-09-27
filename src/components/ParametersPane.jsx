@@ -557,13 +557,13 @@ export function ParametersPane({
                   </div>
                   <select
                     className="select-dropdown"
-                    value={params.blendMode || 'lighter'}
+                    value={params.blendMode || 'source-over'}
                     onChange={(e) => handleChange('blendMode', e.target.value)}
                   >
-                    <option value="lighter">Lighter / Add</option>
-                    <option value="source-over">Over</option>
-                    <option value="screen">Screen</option>
-                    <option value="difference">Difference</option>
+                    <option value="source-over">Over / Motion Trail (Normal)</option>
+                    <option value="lighter">Lighter / Add (Particles)</option>
+                    <option value="screen">Screen Glow</option>
+                    <option value="difference">Difference Glitch</option>
                   </select>
                 </div>
               </>

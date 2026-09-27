@@ -47,11 +47,11 @@ export const OPERATOR_DEFINITIONS = {
     inputs: [{ id: 'in1', label: 'Source', type: 'texture' }],
     outputs: [{ id: 'out1', label: 'Texture', type: 'texture' }],
     defaultParams: {
-      decay: 0.93,
-      zoom: 1.03,
-      rotate: 0.015,
-      hueShift: 2.0,
-      blendMode: 'lighter'
+      decay: 0.88,
+      zoom: 1.015,
+      rotate: 0.006,
+      hueShift: 0.0,
+      blendMode: 'source-over'
     }
   },
   displace: {

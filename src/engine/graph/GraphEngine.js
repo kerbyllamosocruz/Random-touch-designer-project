@@ -470,7 +470,7 @@ export class GraphEngine {
       const videoIn = this.createNode('videoIn', { x: 60, y: 140 }, { source: 'webcam', mirror: true, presetLoop: 'cyber_grid' });
       const onnx = this.createNode('onnxModel', { x: 320, y: 140 }, { modelId: 'hand_landmark' });
       const handFX = this.createNode('handActionFX', { x: 580, y: 140 }, { intensity: 1.0 });
-      const feedback = this.createNode('feedback', { x: 840, y: 140 }, { decay: 0.91, zoom: 1.02, rotate: 0.01 });
+      const feedback = this.createNode('feedback', { x: 840, y: 140 }, { decay: 0.86, zoom: 1.015, rotate: 0.005, blendMode: 'source-over' });
       const out = this.createNode('outWindow', { x: 1100, y: 140 });
 
       this.connect(videoIn.id, 'out1', onnx.id, 'in1');

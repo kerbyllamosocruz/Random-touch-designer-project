@@ -77,10 +77,10 @@ export class TexturePipeline {
     const feedbackBuf = this.getFeedbackBuffer(nodeId, w, h);
     const fCtx = feedbackBuf.getContext('2d');
 
-    const decay = params.decay !== undefined ? params.decay : 0.94;
-    const zoom = params.zoom !== undefined ? params.zoom : 1.02;
-    const rotate = params.rotate !== undefined ? params.rotate : 0.01; // radians
-    const blendMode = params.blendMode || 'lighter'; // 'lighter', 'source-over', 'screen', 'difference'
+    const decay = params.decay !== undefined ? params.decay : 0.88;
+    const zoom = params.zoom !== undefined ? params.zoom : 1.015;
+    const rotate = params.rotate !== undefined ? params.rotate : 0.006; // radians
+    const blendMode = params.blendMode || 'source-over'; // 'source-over', 'lighter', 'screen', 'difference'
     const hueShift = params.hueShift || 0;
 
     // Draw previous feedback frame transformed
@@ -103,8 +103,14 @@ export class TexturePipeline {
 
     // Composite incoming frame
     outCtx.save();
-    outCtx.globalCompositeOperation = blendMode;
-    outCtx.drawImage(inCanvas, 0, 0, w, h);
+    if (blendMode === 'source-over') {
+      outCtx.globalCompositeOperation = 'source-over';
+      outCtx.globalAlpha = Math.max(0.15, 1.0 - decay * 0.95);
+      outCtx.drawImage(inCanvas, 0, 0, w, h);
+    } else {
+      outCtx.globalCompositeOperation = blendMode;
+      outCtx.drawImage(inCanvas, 0, 0, w, h);
+    }
     outCtx.restore();
 
     // Copy result back to feedback buffer for next frame
