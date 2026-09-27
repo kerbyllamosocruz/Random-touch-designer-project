@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <rect width="64" height="64" rx="14" fill="#131418"/>
+  <rect x="2" y="2" width="60" height="60" rx="12" stroke="url(#border_grad)" stroke-width="2"/>
+  <!-- Node Card Symbol -->
+  <rect x="14" y="14" width="36" height="36" rx="6" fill="#1d1e24" stroke="#8b5cf6" stroke-width="2"/>
+  <!-- Header Bar -->
+  <path d="M14 20C14 16.6863 16.6863 14 20 14H44C47.3137 14 50 16.6863 50 20V23H14V20Z" fill="#8b5cf6"/>
+  <!-- Input Pin -->
+  <circle cx="10" cy="32" r="3.5" fill="#06b6d4" stroke="#131418" stroke-width="1.5"/>
+  <line x1="10" y1="32" x2="14" y2="32" stroke="#06b6d4" stroke-width="2"/>
+  <!-- Output Pin -->
+  <circle cx="54" cy="32" r="3.5" fill="#ec4899" stroke="#131418" stroke-width="1.5"/>
+  <line x1="50" y1="32" x2="54" y2="32" stroke="#ec4899" stroke-width="2"/>
+  <!-- Waveform / ONNX AI Symbol -->
+  <path d="M20 34L25 28L30 36L35 30L40 35L44 32" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <defs>
+    <linearGradient id="border_grad" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8b5cf6"/>
+      <stop offset="0.5" stop-color="#06b6d4"/>
+      <stop offset="1" stop-color="#ec4899"/>
+    </linearGradient>
+  </defs>
+</svg>
