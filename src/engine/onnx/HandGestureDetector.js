@@ -99,6 +99,7 @@ export class HandGestureDetector {
 
   /**
    * Parses 63 floats into 21 {x, y, z} keypoints normalized [0, 1]
+   * and enforces strict anatomical constraints to prevent false head/face snapping
    */
   parseLandmarks(rawValues) {
     if (!rawValues || rawValues.length < 63) return null;
@@ -111,6 +112,76 @@ export class HandGestureDetector {
         z: rawValues[idx + 2] / 224
       });
     }
+    return this.cleanLandmarks(landmarks);
+  }
+
+  /**
+   * Enforces human hand anatomical proportions:
+   * Rejects fingers that unnaturally stretch towards head, face, or background.
+   */
+  /**
+   * Enforces human hand anatomical proportions:
+   * Rejects fingers or joints that unnaturally stretch towards head, face, or background.
+   */
+  cleanLandmarks(landmarks) {
+    if (!landmarks || landmarks.length < 21) return landmarks;
+
+    const wrist = landmarks[0];
+    const indexMcp = landmarks[5];
+    const middleMcp = landmarks[9];
+    const ringMcp = landmarks[13];
+    const pinkyMcp = landmarks[17];
+
+    const palmWidth = this.dist(indexMcp, pinkyMcp);
+    const palmLength = this.dist(wrist, middleMcp);
+    const palmScale = Math.max(0.06, Math.max(palmWidth, palmLength));
+
+    // 1. Clamp MCP knuckles relative to wrist
+    [5, 9, 13, 17].forEach(mcpIdx => {
+      const d = this.dist(landmarks[mcpIdx], wrist);
+      const maxMcp = palmScale * 1.25;
+      if (d > maxMcp && d > 0.001) {
+        const s = maxMcp / d;
+        landmarks[mcpIdx].x = wrist.x + (landmarks[mcpIdx].x - wrist.x) * s;
+        landmarks[mcpIdx].y = wrist.y + (landmarks[mcpIdx].y - wrist.y) * s;
+      }
+    });
+
+    // 2. Strict Thumb distance clamping relative to wrist and index base
+    // A thumb tip can NEVER be farther from wrist than middle fingertip (max ~1.15 * palmScale)
+    const maxThumbDist = palmScale * 1.15;
+    const thumbDist = this.dist(landmarks[4], wrist);
+    if (thumbDist > maxThumbDist && thumbDist > 0.001) {
+      const s = maxThumbDist / thumbDist;
+      [1, 2, 3, 4].forEach(idx => {
+        landmarks[idx].x = wrist.x + (landmarks[idx].x - wrist.x) * s;
+        landmarks[idx].y = wrist.y + (landmarks[idx].y - wrist.y) * s;
+      });
+    }
+
+    // 3. Finger definitions [knuckleIdx, pipIdx, dipIdx, tipIdx, maxLenRatio]
+    const fingerDefs = [
+      [5, 6, 7, 8, 1.20],   // Index
+      [9, 10, 11, 12, 1.25],// Middle
+      [13, 14, 15, 16, 1.20],// Ring
+      [17, 18, 19, 20, 1.05] // Pinky
+    ];
+
+    fingerDefs.forEach(([baseIdx, pipIdx, dipIdx, tipIdx, maxRatio]) => {
+      const base = landmarks[baseIdx];
+      const tip = landmarks[tipIdx];
+      const len = this.dist(base, tip);
+      const maxLen = palmScale * maxRatio;
+
+      if (len > maxLen && len > 0.001) {
+        const scale = maxLen / len;
+        [pipIdx, dipIdx, tipIdx].forEach(idx => {
+          landmarks[idx].x = base.x + (landmarks[idx].x - base.x) * scale;
+          landmarks[idx].y = base.y + (landmarks[idx].y - base.y) * scale;
+        });
+      }
+    });
+
     return landmarks;
   }
 

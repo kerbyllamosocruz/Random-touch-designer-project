@@ -28,6 +28,7 @@ export class GraphEngine {
 
   subscribe(callback) {
     this.subscribers.add(callback);
+    callback(this);
     return () => this.subscribers.delete(callback);
   }
 

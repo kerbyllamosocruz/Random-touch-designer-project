@@ -8,6 +8,9 @@ export default defineConfig({
     exclude: ['onnxruntime-web'],
   },
   server: {
+    hmr: {
+      overlay: false,
+    },
     headers: {
       'Cross-Origin-Opener-Policy': 'same-origin',
       'Cross-Origin-Embedder-Policy': 'credentialless',

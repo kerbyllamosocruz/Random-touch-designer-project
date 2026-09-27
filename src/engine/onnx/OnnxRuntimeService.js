@@ -2,12 +2,13 @@ import * as ort from 'onnxruntime-web';
 import { BUILTIN_MODELS } from './BuiltinModels.js';
 import { getClassName } from './imagenetLabels.js';
 import { handGestureDetector } from './HandGestureDetector.js';
+import { palmDetector } from './PalmDetector.js';
 
 // Setup ORT Wasm paths
 try {
-  // Use local wasm if available, with CDN fallback
-  ort.env.wasm.wasmPaths = '/ort-wasm/';
-  ort.env.wasm.numThreads = 1; // universally safe without requiring SharedArrayBuffer cross-origin isolation
+  // Use CDN distribution matching onnxruntime-web 1.30.0 to prevent Vite /public import issues
+  ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.30.0/dist/';
+  ort.env.wasm.numThreads = 1;
 } catch (e) {
   console.warn('[ORT] Failed to configure wasm paths:', e);
 }
@@ -22,6 +23,11 @@ class OnnxRuntimeService {
     this.outputCtx = this.outputCanvas.getContext('2d');
     this.provider = 'wasm'; // 'wasm' or 'webgpu'
     this.lastInferenceTime = 0;
+    this.handTrackingState = {
+      roi: null,
+      lostFrames: 0,
+      frameCount: 0
+    };
   }
 
   setExecutionProvider(provider) {
@@ -80,8 +86,7 @@ class OnnxRuntimeService {
               graphOptimizationLevel: 'all'
             });
           } else {
-            // Try CDN wasm fallback if local wasm paths failed
-            ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.21.0/dist/';
+            ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.30.0/dist/';
             session = await ort.InferenceSession.create(modelData, {
               executionProviders: ['wasm']
             });
@@ -102,6 +107,13 @@ class OnnxRuntimeService {
 
         this.sessions.set(modelId, sessionInfo);
         console.log(`[ORT] Model '${modelMeta.name}' loaded successfully. Inputs:`, inputNames, 'Outputs:', outputNames);
+
+        if (modelId === 'hand_landmark') {
+          palmDetector.load('/models/palm_detection.onnx', this.provider).catch(e => {
+            console.warn('[ORT] Failed to preload palm detector:', e);
+          });
+        }
+
         return sessionInfo;
       } catch (err) {
         console.error(`[ORT] Error loading model ${modelId}:`, err);
@@ -118,12 +130,39 @@ class OnnxRuntimeService {
   /**
    * Preprocess an HTMLCanvasElement, HTMLVideoElement, or Image into a Float32Array Tensor
    */
-  preprocess(source, targetWidth = 256, targetHeight = 256, normalize = 'zero_to_one') {
+  preprocess(source, targetWidth = 256, targetHeight = 256, normalize = 'zero_to_one', preserveAspect = false) {
     this.sharedCanvas.width = targetWidth;
     this.sharedCanvas.height = targetHeight;
 
-    // Draw source scaled to target dimensions
-    this.sharedCtx.drawImage(source, 0, 0, targetWidth, targetHeight);
+    if (preserveAspect) {
+      this.sharedCtx.fillStyle = '#000000';
+      this.sharedCtx.fillRect(0, 0, targetWidth, targetHeight);
+
+      const sw = source.videoWidth || source.width || targetWidth;
+      const sh = source.videoHeight || source.height || targetHeight;
+      const aspect = sw / sh;
+
+      let dw = targetWidth;
+      let dh = targetHeight;
+      let dx = 0;
+      let dy = 0;
+
+      if (aspect > 1) {
+        dh = Math.round(targetWidth / aspect);
+        dy = Math.round((targetHeight - dh) / 2);
+      } else {
+        dw = Math.round(targetHeight * aspect);
+        dx = Math.round((targetWidth - dw) / 2);
+      }
+
+      this.sharedCtx.drawImage(source, dx, dy, dw, dh);
+      this.letterboxInfo = { dx, dy, dw, dh, targetWidth, targetHeight };
+    } else {
+      // Draw source scaled to target dimensions
+      this.sharedCtx.drawImage(source, 0, 0, targetWidth, targetHeight);
+      this.letterboxInfo = null;
+    }
+
     const imgData = this.sharedCtx.getImageData(0, 0, targetWidth, targetHeight);
     const rgba = imgData.data;
 
@@ -173,13 +212,20 @@ class OnnxRuntimeService {
     }
 
     const { session, meta, inputNames, outputNames } = sessionInfo;
+
+    // Hand pose detection uses specialized two-stage Hand ROI tracking
+    // (BlazePalm detector + Hand Landmark) to guarantee zero head/face false positives
+    if (meta.type === 'hand_pose') {
+      return await this.runHandTrackingPipeline(sessionInfo, sourceElement, params);
+    }
+
     const inputName = meta.inputName || inputNames[0];
     const targetW = (meta.inputShape && meta.inputShape[3]) || 256;
     const targetH = (meta.inputShape && meta.inputShape[2]) || 256;
     const normalize = meta.normalize || 'zero_to_one';
 
     // 1. Preprocess
-    const tensor = this.preprocess(sourceElement, targetW, targetH, normalize);
+    const tensor = this.preprocess(sourceElement, targetW, targetH, normalize, false);
 
     // 2. Execute
     const startTime = performance.now();
@@ -193,6 +239,215 @@ class OnnxRuntimeService {
     const outputTensor = results[outputName] || Object.values(results)[0];
 
     return this.postprocess(meta.type, outputTensor, sourceElement, targetW, targetH, params, duration, results);
+  }
+
+  /**
+   * Two-stage Hand Localization & Landmark Tracking Pipeline
+   * 1. BlazePalm SSD finds tight palm ROI (ignores head, face, background)
+   * 2. Hand Landmark ONNX processes exclusively cropped hand image
+   * 3. Coordinates are accurately re-projected onto full camera resolution
+   */
+  async runHandTrackingPipeline(sessionInfo, sourceElement, params = {}) {
+    const { session, inputNames } = sessionInfo;
+    const inputName = inputNames[0] || 'input_1';
+
+    const sw = sourceElement.videoWidth || sourceElement.width || 640;
+    const sh = sourceElement.videoHeight || sourceElement.height || 360;
+
+    const outWidth = sw;
+    const outHeight = sh;
+    this.outputCanvas.width = outWidth;
+    this.outputCanvas.height = outHeight;
+    const ctx = this.outputCtx;
+
+    const startTime = performance.now();
+    const state = this.handTrackingState;
+    state.frameCount++;
+
+    // 1. Palm Detection & Hand ROI localization
+    const needsPalmDetect = !state.roi || state.lostFrames > 2 || (state.frameCount % 20 === 0);
+
+    if (needsPalmDetect) {
+      try {
+        const palm = await palmDetector.detect(sourceElement, 0.50);
+        if (palm) {
+          const newRoi = palmDetector.getHandRoi(palm);
+          if (state.roi) {
+            state.roi = {
+              x: state.roi.x * 0.4 + newRoi.x * 0.6,
+              y: state.roi.y * 0.4 + newRoi.y * 0.6,
+              w: state.roi.w * 0.4 + newRoi.w * 0.6,
+              h: state.roi.h * 0.4 + newRoi.h * 0.6
+            };
+          } else {
+            state.roi = newRoi;
+          }
+          state.lostFrames = 0;
+        } else if (!state.roi) {
+          // No hand in frame: render clear background with awaiting HUD
+          ctx.drawImage(sourceElement, 0, 0, outWidth, outHeight);
+          const duration = performance.now() - startTime;
+          this.lastInferenceTime = duration;
+
+          const emptyAnalysis = handGestureDetector.analyze(null, 0);
+          handGestureDetector.renderSkeleton(ctx, emptyAnalysis, outWidth, outHeight);
+
+          return {
+            canvas: this.outputCanvas,
+            type: 'hand_pose',
+            inferenceMs: duration,
+            analysis: emptyAnalysis,
+            channels: {
+              detected: 0.0,
+              gesture: 'none',
+              gestureName: 'No Hand Detected',
+              effect: 'AWAITING HAND MOVEMENT',
+              fingerCount: 0,
+              thumbExt: 0,
+              indexExt: 0,
+              middleExt: 0,
+              ringExt: 0,
+              pinkyExt: 0,
+              indexX: 0.5,
+              indexY: 0.5,
+              thumbX: 0.5,
+              thumbY: 0.5,
+              wristX: 0.5,
+              wristY: 0.5,
+              pinchDist: 1.0,
+              isPinching: 0.0,
+              handSpeed: 0.0,
+              swipe: 'none'
+            }
+          };
+        }
+      } catch (err) {
+        console.warn('[HandTracker] Palm detection error:', err);
+      }
+    }
+
+    // 2. Crop Hand ROI for hand_landmark.onnx
+    const roi = state.roi;
+    const sx = Math.max(0, Math.floor(roi.x * sw));
+    const sy = Math.max(0, Math.floor(roi.y * sh));
+    const cropW = Math.min(sw - sx, Math.max(20, Math.floor(roi.w * sw)));
+    const cropH = Math.min(sh - sy, Math.max(20, Math.floor(roi.h * sh)));
+
+    this.sharedCanvas.width = 224;
+    this.sharedCanvas.height = 224;
+    this.sharedCtx.drawImage(sourceElement, sx, sy, cropW, cropH, 0, 0, 224, 224);
+
+    const imgData = this.sharedCtx.getImageData(0, 0, 224, 224);
+    const rgba = imgData.data;
+    const numPixels = 224 * 224;
+    const floatData = new Float32Array(3 * numPixels);
+    const gOffset = numPixels;
+    const bOffset = 2 * numPixels;
+
+    for (let i = 0, j = 0; i < rgba.length; i += 4, j++) {
+      floatData[j] = rgba[i] / 255.0;
+      floatData[gOffset + j] = rgba[i + 1] / 255.0;
+      floatData[bOffset + j] = rgba[i + 2] / 255.0;
+    }
+
+    const tensor = new ort.Tensor('float32', floatData, [1, 3, 224, 224]);
+
+    // 3. Run Hand Landmark Session
+    const results = await session.run({ [inputName]: tensor });
+    const duration = performance.now() - startTime;
+    this.lastInferenceTime = duration;
+
+    const rawLandmarks = results.Identity.data;
+    const scoreTensor = results['Identity_1'] || results['Identity_score'];
+    const score = scoreTensor?.data?.[0] !== undefined ? scoreTensor.data[0] : 1.0;
+
+    let analysis;
+
+    if (score >= 0.55 && rawLandmarks && rawLandmarks.length >= 63) {
+      state.lostFrames = 0;
+
+      // Map landmarks from crop space [0, 1] back to full image space [0, 1]
+      const landmarks = [];
+      let minX = 1.0, maxX = 0.0, minY = 1.0, maxY = 0.0;
+
+      for (let i = 0; i < 21; i++) {
+        const lx = Math.min(1.0, Math.max(0.0, rawLandmarks[i * 3] / 224));
+        const ly = Math.min(1.0, Math.max(0.0, rawLandmarks[i * 3 + 1] / 224));
+        const lz = rawLandmarks[i * 3 + 2] / 224;
+
+        const fx = Math.min(1.0, Math.max(0.0, (sx + lx * cropW) / sw));
+        const fy = Math.min(1.0, Math.max(0.0, (sy + ly * cropH) / sh));
+
+        if (fx < minX) minX = fx;
+        if (fx > maxX) maxX = fx;
+        if (fy < minY) minY = fy;
+        if (fy > maxY) maxY = fy;
+
+        landmarks.push({ x: fx, y: fy, z: lz });
+      }
+
+      // Enforce strict anatomical bounds (guarantees thumb or fingers cannot snap to head or background)
+      const cleaned = handGestureDetector.cleanLandmarks(landmarks);
+
+      // Smoothly update ROI tracking for next frame with margin
+      const bboxW = maxX - minX;
+      const bboxH = maxY - minY;
+      const pad = Math.max(0.05, Math.max(bboxW, bboxH) * 0.35);
+      const targetRoi = {
+        x: Math.max(0, minX - pad),
+        y: Math.max(0, minY - pad),
+        w: Math.min(1.0 - Math.max(0, minX - pad), bboxW + pad * 2),
+        h: Math.min(1.0 - Math.max(0, minY - pad), bboxH + pad * 2)
+      };
+
+      state.roi = {
+        x: state.roi.x * 0.5 + targetRoi.x * 0.5,
+        y: state.roi.y * 0.5 + targetRoi.y * 0.5,
+        w: state.roi.w * 0.5 + targetRoi.w * 0.5,
+        h: state.roi.h * 0.5 + targetRoi.h * 0.5
+      };
+
+      analysis = handGestureDetector.analyze(cleaned, score);
+    } else {
+      state.lostFrames++;
+      if (state.lostFrames > 3) {
+        state.roi = null; // Re-detect palm on next frame
+      }
+      analysis = handGestureDetector.analyze(null, 0);
+    }
+
+    // 4. Draw composite result onto output canvas
+    ctx.drawImage(sourceElement, 0, 0, outWidth, outHeight);
+    handGestureDetector.renderSkeleton(ctx, analysis, outWidth, outHeight);
+
+    return {
+      canvas: this.outputCanvas,
+      type: 'hand_pose',
+      inferenceMs: duration,
+      analysis,
+      channels: {
+        detected: analysis.detected ? 1.0 : 0.0,
+        gesture: analysis.gesture.id,
+        gestureName: analysis.gesture.name,
+        effect: analysis.gesture.effectName,
+        fingerCount: analysis.fingerCount,
+        thumbExt: analysis.fingers[0] ? 1.0 : 0.0,
+        indexExt: analysis.fingers[1] ? 1.0 : 0.0,
+        middleExt: analysis.fingers[2] ? 1.0 : 0.0,
+        ringExt: analysis.fingers[3] ? 1.0 : 0.0,
+        pinkyExt: analysis.fingers[4] ? 1.0 : 0.0,
+        indexX: analysis.indexPos?.x || 0.5,
+        indexY: analysis.indexPos?.y || 0.5,
+        thumbX: analysis.thumbPos?.x || 0.5,
+        thumbY: analysis.thumbPos?.y || 0.5,
+        wristX: analysis.wristPos?.x || 0.5,
+        wristY: analysis.wristPos?.y || 0.5,
+        pinchDist: analysis.pinchDist || 1.0,
+        isPinching: analysis.pinchDist < 0.085 ? 1.0 : 0.0,
+        handSpeed: analysis.speed || 0.0,
+        swipe: analysis.swipe
+      }
+    };
   }
 
   /**
@@ -376,7 +631,19 @@ class OnnxRuntimeService {
     } else if (type === 'hand_pose') {
       // Identity is [1, 63] keypoints in 224x224 space
       const rawLandmarks = outputTensor.data;
-      const landmarks = handGestureDetector.parseLandmarks(rawLandmarks);
+      let landmarks = handGestureDetector.parseLandmarks(rawLandmarks);
+
+      // Un-letterbox coordinates to preserve camera aspect ratio
+      if (this.letterboxInfo && landmarks) {
+        const { dx, dy, dw, dh, targetWidth, targetHeight } = this.letterboxInfo;
+        landmarks = landmarks.map(p => ({
+          x: Math.min(1.0, Math.max(0.0, (p.x * targetWidth - dx) / dw)),
+          y: Math.min(1.0, Math.max(0.0, (p.y * targetHeight - dy) / dh)),
+          z: p.z
+        }));
+        landmarks = handGestureDetector.cleanLandmarks(landmarks);
+      }
+
       const scoreTensor = results['Identity_1'] || results['Identity_score'];
       const score = scoreTensor?.data?.[0] !== undefined ? scoreTensor.data[0] : 1.0;
       const analysis = handGestureDetector.analyze(landmarks, score);

@@ -12,6 +12,19 @@ export const BUILTIN_MODELS = {
     color: '#06b6d4',
     description: 'Tracks 21 hand 3D keypoints, finger extensions, gestures (fist, peace, point, pinch) & movement velocity.'
   },
+  palm_detection: {
+    id: 'palm_detection',
+    name: 'MediaPipe BlazePalm Detector',
+    category: 'Pose / Gesture',
+    url: '/models/palm_detection.onnx',
+    inputName: 'input',
+    outputName: 'regressors',
+    inputShape: [1, 3, 128, 128],
+    type: 'palm_detection',
+    normalize: 'symmetric',
+    color: '#38bdf8',
+    description: 'BlazePalm SSD detector outputting palm bounding boxes & 7 keypoints.'
+  },
   selfie_segmentation: {
     id: 'selfie_segmentation',
     name: 'Selfie Person Segmentation',

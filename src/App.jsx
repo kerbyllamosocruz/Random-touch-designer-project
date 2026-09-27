@@ -30,10 +30,6 @@ export default function App() {
 
   // Initialize engine and load default preset on mount
   useEffect(() => {
-    graphEngine.loadPreset('hand_gesture_studio');
-    graphEngine.startLoop();
-    audioEngine.startSynth(); // start soft synth beat for immediate reactivity
-
     const unsubscribe = graphEngine.subscribe((engine) => {
       setEngineState({
         nodes: Array.from(engine.nodes.values()),
@@ -43,6 +39,10 @@ export default function App() {
         isPlaying: engine.isPlaying
       });
     });
+
+    graphEngine.loadPreset('hand_gesture_studio');
+    graphEngine.startLoop();
+    audioEngine.startSynth(); // start soft synth beat for immediate reactivity
 
     return () => {
       unsubscribe();
