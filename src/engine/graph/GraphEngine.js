@@ -503,19 +503,14 @@ export class GraphEngine {
     this.activePresetId = presetId;
 
     if (presetId === 'hand_gesture_studio' || presetId === 'ai_segmentation') {
-      // 1. MediaPipe Hand & Finger Movement Gesture Studio (Different visual results for each gesture!)
-      const videoIn = this.createNode('videoIn', { x: 60, y: 140 }, { source: 'webcam', mirror: true, presetLoop: 'cyber_grid' });
-      const mpHand = this.createNode('mediaPipeHand', { x: 320, y: 140 }, { maxHands: 2, overlayMode: 'composite' });
-      const handFX = this.createNode('handActionFX', { x: 580, y: 140 }, { intensity: 1.0 });
-      const feedback = this.createNode('feedback', { x: 840, y: 140 }, { decay: 0.86, zoom: 1.015, rotate: 0.005, blendMode: 'source-over' });
-      const out = this.createNode('outWindow', { x: 1100, y: 140 });
+      // Dual Hand Glass Portal Studio - Retaining handActionFX as the final output
+      const videoIn = this.createNode('videoIn', { x: 140, y: 200 }, { source: 'webcam', mirror: true, presetLoop: 'cyber_grid' });
+      const mpHand = this.createNode('mediaPipeHand', { x: 460, y: 200 }, { maxHands: 2, overlayMode: 'composite' });
+      const handFX = this.createNode('handActionFX', { x: 780, y: 200 }, { intensity: 1.0, style: 'glass_prism' });
 
       this.connect(videoIn.id, 'out1', mpHand.id, 'in1');
       this.connect(mpHand.id, 'out1', handFX.id, 'in1');
       this.connect(mpHand.id, 'chanOut', handFX.id, 'chanIn');
-      this.connect(handFX.id, 'out1', feedback.id, 'in1');
-      this.connect(feedback.id, 'out1', out.id, 'in1');
-
     } else if (presetId === 'person_matte') {
       // 2. AI Person Segmentation & Neon Feedback Loop
       const videoIn = this.createNode('videoIn', { x: 80, y: 140 }, { source: 'webcam', mirror: true, presetLoop: 'cyber_grid' });
@@ -541,22 +536,6 @@ export class GraphEngine {
       this.connect(sobel.id, 'out1', kaleido.id, 'in1');
       this.connect(kaleido.id, 'out1', bloom.id, 'in1');
       this.connect(bloom.id, 'out1', out.id, 'in1');
-
-    } else if (presetId === 'audio_glsl_ai') {
-      // 3. Audio-Reactive GLSL + ONNX Neural Color
-      const audio = this.createNode('audioIn', { x: 80, y: 320 }, { source: 'synth' });
-      const audioAnalysis = this.createNode('audioAnalysis', { x: 300, y: 320 }, { sensitivity: 1.8 });
-      const videoIn = this.createNode('videoIn', { x: 80, y: 120 }, { source: 'webcam', presetLoop: 'liquid_waves' });
-      const onnx = this.createNode('onnxModel', { x: 320, y: 120 }, { modelId: 'neural_filter' });
-      const glsl = this.createNode('glsl', { x: 580, y: 180 }, { shaderPreset: 'raymarch_tunnel' });
-      const feedback = this.createNode('feedback', { x: 840, y: 180 }, { decay: 0.88, zoom: 1.04 });
-      const out = this.createNode('outWindow', { x: 1100, y: 180 });
-
-      this.connect(videoIn.id, 'out1', onnx.id, 'in1');
-      this.connect(onnx.id, 'out1', glsl.id, 'in1');
-      this.connect(audio.id, 'chanOut', audioAnalysis.id, 'chanIn');
-      this.connect(glsl.id, 'out1', feedback.id, 'in1');
-      this.connect(feedback.id, 'out1', out.id, 'in1');
 
     } else if (presetId === 'squeezenet_vision') {
       // 4. SqueezeNet Classifier HUD & Displacement
