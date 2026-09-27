@@ -23,7 +23,7 @@ export class GraphEngine {
     this.onnxPending = new Set(); // nodeIds currently running async ONNX inference
 
     // Active preset
-    this.activePresetId = 'ai_segmentation';
+    this.activePresetId = 'hand_gesture_studio';
   }
 
   subscribe(callback) {
@@ -412,6 +412,23 @@ export class GraphEngine {
           break;
         }
 
+        case 'handActionFX': {
+          const inCanvas = this.getIncomingCanvas(nodeId, 'in1');
+          let handData = this.getIncomingChannels(nodeId, 'chanIn');
+          if (!handData) {
+            for (const [_, ch] of this.nodeChannels.entries()) {
+              if (ch && ch.gesture) {
+                handData = ch;
+                break;
+              }
+            }
+          }
+          if (inCanvas) {
+            texturePipeline.processHandAction(inCanvas, handData, node.params, this.time, nodeId, canvas, ctx);
+          }
+          break;
+        }
+
         case 'outWindow': {
           const inCanvas = this.getIncomingCanvas(nodeId, 'in1');
           if (inCanvas) {
@@ -447,8 +464,22 @@ export class GraphEngine {
     this.nodeChannels.clear();
     this.activePresetId = presetId;
 
-    if (presetId === 'ai_segmentation') {
-      // 1. AI Person Segmentation & Neon Feedback Loop
+    if (presetId === 'hand_gesture_studio' || presetId === 'ai_segmentation') {
+      // 1. ONNX Hand & Finger Movement Gesture Studio (Different visual results for each gesture!)
+      const videoIn = this.createNode('videoIn', { x: 60, y: 140 }, { source: 'webcam', mirror: true, presetLoop: 'cyber_grid' });
+      const onnx = this.createNode('onnxModel', { x: 320, y: 140 }, { modelId: 'hand_landmark' });
+      const handFX = this.createNode('handActionFX', { x: 580, y: 140 }, { intensity: 1.0 });
+      const feedback = this.createNode('feedback', { x: 840, y: 140 }, { decay: 0.91, zoom: 1.02, rotate: 0.01 });
+      const out = this.createNode('outWindow', { x: 1100, y: 140 });
+
+      this.connect(videoIn.id, 'out1', onnx.id, 'in1');
+      this.connect(onnx.id, 'out1', handFX.id, 'in1');
+      this.connect(onnx.id, 'chanOut', handFX.id, 'chanIn');
+      this.connect(handFX.id, 'out1', feedback.id, 'in1');
+      this.connect(feedback.id, 'out1', out.id, 'in1');
+
+    } else if (presetId === 'person_matte') {
+      // 2. AI Person Segmentation & Neon Feedback Loop
       const videoIn = this.createNode('videoIn', { x: 80, y: 140 }, { source: 'webcam', mirror: true, presetLoop: 'cyber_grid' });
       const onnx = this.createNode('onnxModel', { x: 340, y: 140 }, { modelId: 'selfie_segmentation', mode: 'glow', threshold: 0.5 });
       const feedback = this.createNode('feedback', { x: 600, y: 140 }, { decay: 0.92, zoom: 1.02, rotate: 0.012, hueShift: 4.0 });

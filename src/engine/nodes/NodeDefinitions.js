@@ -183,20 +183,36 @@ export const OPERATOR_DEFINITIONS = {
     type: 'onnxModel',
     category: 'AI',
     name: 'onnxModel',
-    label: 'ONNX Neural Vision',
+    label: 'ONNX Hand & Vision AI',
     inputs: [{ id: 'in1', label: 'Image In', type: 'texture' }],
     outputs: [
       { id: 'out1', label: 'Output Texture', type: 'texture' },
       { id: 'chanOut', label: 'ONNX Channels', type: 'channel' }
     ],
     defaultParams: {
-      modelId: 'selfie_segmentation', // 'selfie_segmentation', 'sobel_edge', 'neural_filter', 'squeezenet', 'custom'
+      modelId: 'hand_landmark', // 'hand_landmark', 'selfie_segmentation', 'sobel_edge', 'neural_filter', 'squeezenet', 'custom'
       mode: 'matte', // 'matte', 'cutout', 'glow'
       threshold: 0.5,
       invert: false,
       edgeBoost: 2.5,
       customFileName: '',
       interval: 1 // Run every N frames
+    }
+  },
+
+  handActionFX: {
+    type: 'handActionFX',
+    category: 'TOP',
+    name: 'handActionFX',
+    label: 'Hand Gesture Action FX',
+    inputs: [
+      { id: 'in1', label: 'Texture In', type: 'texture' },
+      { id: 'chanIn', label: 'Hand CHOP In', type: 'channel' }
+    ],
+    outputs: [{ id: 'out1', label: 'Texture', type: 'texture' }],
+    defaultParams: {
+      intensity: 1.0,
+      active: true
     }
   },
 

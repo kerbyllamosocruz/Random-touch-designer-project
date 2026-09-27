@@ -23,14 +23,14 @@ export default function App() {
   const [isParamsOpen, setIsParamsOpen] = useState(true);
   const [isOpModalOpen, setIsOpModalOpen] = useState(false);
   const [isOutModalOpen, setIsOutModalOpen] = useState(false);
-  const [activePreset, setActivePreset] = useState('ai_segmentation');
+  const [activePreset, setActivePreset] = useState('hand_gesture_studio');
   const [isWebcamActive, setIsWebcamActive] = useState(false);
   const [isAudioActive, setIsAudioActive] = useState(true);
   const [provider, setProvider] = useState('wasm');
 
   // Initialize engine and load default preset on mount
   useEffect(() => {
-    graphEngine.loadPreset('ai_segmentation');
+    graphEngine.loadPreset('hand_gesture_studio');
     graphEngine.startLoop();
     audioEngine.startSynth(); // start soft synth beat for immediate reactivity
 

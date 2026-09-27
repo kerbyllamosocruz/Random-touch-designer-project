@@ -1,4 +1,17 @@
 export const BUILTIN_MODELS = {
+  hand_landmark: {
+    id: 'hand_landmark',
+    name: 'MediaPipe Hand & Finger Tracking',
+    category: 'Pose / Gesture',
+    url: '/models/hand_landmark.onnx',
+    inputName: 'input_1',
+    outputName: 'Identity',
+    inputShape: [1, 3, 224, 224],
+    type: 'hand_pose',
+    normalize: 'zero_to_one', // [0, 1]
+    color: '#06b6d4',
+    description: 'Tracks 21 hand 3D keypoints, finger extensions, gestures (fist, peace, point, pinch) & movement velocity.'
+  },
   selfie_segmentation: {
     id: 'selfie_segmentation',
     name: 'Selfie Person Segmentation',
@@ -8,8 +21,8 @@ export const BUILTIN_MODELS = {
     outputName: 'alphas',
     inputShape: [1, 3, 256, 256],
     type: 'segmentation',
-    normalize: 'zero_to_one', // [0, 1]
-    color: '#06b6d4',
+    normalize: 'zero_to_one',
+    color: '#8b5cf6',
     description: 'Real-time human body segmentation & background matte extraction.'
   },
   sobel_edge: {
@@ -47,7 +60,7 @@ export const BUILTIN_MODELS = {
     outputName: 'squeezenet0_flatten0_reshape0',
     inputShape: [1, 3, 224, 224],
     type: 'classification',
-    normalize: 'imagenet', // subtract mean, divide std
+    normalize: 'imagenet',
     color: '#10b981',
     description: 'Deep CNN classifying 1,000 visual object classes to drive CHOP channels.'
   },

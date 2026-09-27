@@ -98,10 +98,11 @@ export function Header({
             onChange={(e) => onSelectPreset(e.target.value)}
             title="Load Preset Network"
           >
-            <option value="ai_segmentation">Preset: AI Person Matte & Feedback</option>
-            <option value="sobel_kaleido">Preset: Neural Sobel & Kaleidoscope</option>
-            <option value="audio_glsl_ai">Preset: Audio GLSL & Neural Color</option>
-            <option value="squeezenet_vision">Preset: SqueezeNet Vision & Displace</option>
+            <option value="hand_gesture_studio">🖐️ Hand & Finger Gesture Controller</option>
+            <option value="person_matte">👤 AI Person Matte & Feedback</option>
+            <option value="sobel_kaleido">⚡ Neural Sobel & Kaleidoscope</option>
+            <option value="audio_glsl_ai">🎵 Audio GLSL & Neural Color</option>
+            <option value="squeezenet_vision">👁️ SqueezeNet Vision & Displace</option>
           </select>
         </div>
 

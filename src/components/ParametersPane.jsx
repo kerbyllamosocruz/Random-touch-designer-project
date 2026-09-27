@@ -118,9 +118,10 @@ export function ParametersPane({
                   </div>
                   <select
                     className="select-dropdown"
-                    value={params.modelId || 'selfie_segmentation'}
+                    value={params.modelId || 'hand_landmark'}
                     onChange={(e) => handleChange('modelId', e.target.value)}
                   >
+                    <option value="hand_landmark">MediaPipe Hand & Finger Movement</option>
                     <option value="selfie_segmentation">MediaPipe Selfie Segmentation</option>
                     <option value="sobel_edge">Neural Sobel Edge Tensor</option>
                     <option value="neural_filter">Cyber Neural Color Grade</option>
@@ -128,6 +129,85 @@ export function ParametersPane({
                     <option value="custom">Upload Custom .onnx Model</option>
                   </select>
                 </div>
+
+                {params.modelId === 'hand_landmark' && (
+                  <div className="param-group">
+                    <div className="param-label">
+                      <span>Detected Hand Gesture & Action</span>
+                    </div>
+                    <div style={{ background: '#090d16', padding: '12px', borderRadius: '6px', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>ACTIVE ACTION:</span>
+                        <span style={{ fontSize: '11px', fontWeight: 700, color: '#38bdf8', fontFamily: 'var(--font-mono)' }}>
+                          {channelData?.effect || 'AWAITING HAND'}
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '24px' }}>
+                          {channelData?.gesture === 'fist' ? '✊' :
+                           channelData?.gesture === 'open_palm' ? '✋' :
+                           channelData?.gesture === 'pointing' ? '☝️' :
+                           channelData?.gesture === 'peace' ? '✌️' :
+                           channelData?.gesture === 'pinch' ? '🤏' :
+                           channelData?.gesture === 'rock' ? '🤘' :
+                           channelData?.gesture === 'thumbs_up' ? '👍' : '👋'}
+                        </span>
+                        <div>
+                          <div style={{ fontSize: '13px', fontWeight: 600, color: '#fff' }}>
+                            {channelData?.gestureName || 'Wave hand to camera'}
+                          </div>
+                          <div style={{ fontSize: '10px', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
+                            {channelData?.detected ? `${channelData.fingerCount} Fingers Up · Speed: ${channelData.handSpeed?.toFixed(1)}` : 'Camera tracking active'}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Individual Finger Status Pills */}
+                      <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+                        {['Thumb', 'Index', 'Mid', 'Ring', 'Pinky'].map((fName, i) => {
+                          const isExt = [channelData?.thumbExt, channelData?.indexExt, channelData?.middleExt, channelData?.ringExt, channelData?.pinkyExt][i];
+                          return (
+                            <span
+                              key={fName}
+                              style={{
+                                flex: 1,
+                                textAlign: 'center',
+                                fontSize: '9px',
+                                fontFamily: 'var(--font-mono)',
+                                padding: '3px 0',
+                                borderRadius: '3px',
+                                background: isExt ? 'rgba(56, 189, 248, 0.25)' : 'rgba(255,255,255,0.05)',
+                                color: isExt ? '#38bdf8' : 'var(--text-dim)',
+                                border: isExt ? '1px solid #0284c7' : '1px solid transparent'
+                              }}
+                            >
+                              {fName}
+                            </span>
+                          );
+                        })}
+                      </div>
+
+                      {/* Pinch Meter */}
+                      <div style={{ marginTop: '4px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: 'var(--text-dim)', marginBottom: '3px' }}>
+                          <span>PINCH DISTANCE</span>
+                          <span>{channelData?.pinchDist ? `${(channelData.pinchDist * 100).toFixed(0)}%` : '100%'}</span>
+                        </div>
+                        <div style={{ width: '100%', height: '4px', background: '#1e293b', borderRadius: '2px', overflow: 'hidden' }}>
+                          <div
+                            style={{
+                              width: `${Math.min(100, Math.max(0, (channelData?.pinchDist || 1.0) * 100))}%`,
+                              height: '100%',
+                              background: channelData?.isPinching ? '#f59e0b' : '#38bdf8',
+                              transition: 'width 0.05s ease'
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {params.modelId === 'custom' && (
                   <div className="param-group">
@@ -250,6 +330,45 @@ export function ParametersPane({
                       value={params.interval || 1}
                       onChange={(e) => handleChange('interval', parseInt(e.target.value))}
                     />
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* === HAND ACTION FX OPERATOR === */}
+            {node.type === 'handActionFX' && (
+              <>
+                <div className="param-group">
+                  <div className="param-label">
+                    <span>Reaction Intensity</span>
+                    <span className="val">{params.intensity?.toFixed(1) || '1.0'}x</span>
+                  </div>
+                  <div className="param-slider-row">
+                    <input
+                      type="range"
+                      className="param-slider"
+                      min="0.2"
+                      max="3.0"
+                      step="0.1"
+                      value={params.intensity || 1.0}
+                      onChange={(e) => handleChange('intensity', parseFloat(e.target.value))}
+                    />
+                  </div>
+                </div>
+
+                <div className="param-group">
+                  <div className="param-label">
+                    <span>Finger & Hand Action Results Guide</span>
+                  </div>
+                  <div style={{ background: '#090d16', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11px' }}>
+                    <div>✊ <strong>Closed Fist:</strong> Gravitational vortex singularity</div>
+                    <div>✋ <strong>Open Palm:</strong> Supernova particle blast & kaleidoscope</div>
+                    <div>☝️ <strong>Index Pointing:</strong> Neon laser stylus follows finger coordinate</div>
+                    <div>✌️ <strong>Peace (2 fingers):</strong> Symmetrical dual mirror prism</div>
+                    <div>🤏 <strong>Thumb-Index Pinch:</strong> Dynamic zoom lens scaling</div>
+                    <div>🤘 <strong>Rock On (Horns):</strong> Electric lightning & strobe glitch</div>
+                    <div>👍 <strong>Thumbs Up:</strong> Spectrum inversion & radioactive glow</div>
+                    <div>👋 <strong>Hand Velocity / Swipe:</strong> Momentum rotation & hue swing</div>
                   </div>
                 </div>
               </>

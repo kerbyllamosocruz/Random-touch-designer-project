@@ -1,6 +1,7 @@
 import * as ort from 'onnxruntime-web';
 import { BUILTIN_MODELS } from './BuiltinModels.js';
 import { getClassName } from './imagenetLabels.js';
+import { handGestureDetector } from './HandGestureDetector.js';
 
 // Setup ORT Wasm paths
 try {
@@ -191,13 +192,13 @@ class OnnxRuntimeService {
     const outputName = meta.outputName || outputNames[0];
     const outputTensor = results[outputName] || Object.values(results)[0];
 
-    return this.postprocess(meta.type, outputTensor, sourceElement, targetW, targetH, params, duration);
+    return this.postprocess(meta.type, outputTensor, sourceElement, targetW, targetH, params, duration, results);
   }
 
   /**
    * Postprocess output tensors into Visual Canvas and/or Numeric Channels
    */
-  postprocess(type, outputTensor, sourceElement, width, height, params, duration) {
+  postprocess(type, outputTensor, sourceElement, width, height, params, duration, results = {}) {
     this.outputCanvas.width = width;
     this.outputCanvas.height = height;
     const ctx = this.outputCtx;
@@ -370,6 +371,44 @@ class OnnxRuntimeService {
         secondProb: top5[1].probability,
         classIndex: top5[0].index,
         entropy: probs.reduce((acc, p) => p > 0.001 ? acc - p * Math.log2(p) : acc, 0)
+      };
+
+    } else if (type === 'hand_pose') {
+      // Identity is [1, 63] keypoints in 224x224 space
+      const rawLandmarks = outputTensor.data;
+      const landmarks = handGestureDetector.parseLandmarks(rawLandmarks);
+      const scoreTensor = results['Identity_1'] || results['Identity_score'];
+      const score = scoreTensor?.data?.[0] !== undefined ? scoreTensor.data[0] : 1.0;
+      const analysis = handGestureDetector.analyze(landmarks, score);
+
+      // Draw background source
+      ctx.drawImage(sourceElement, 0, 0, width, height);
+
+      // Render hand skeleton & interactive visual fx
+      handGestureDetector.renderSkeleton(ctx, analysis, width, height);
+
+      result.analysis = analysis;
+      result.channels = {
+        detected: analysis.detected ? 1.0 : 0.0,
+        gesture: analysis.gesture.id,
+        gestureName: analysis.gesture.name,
+        effect: analysis.gesture.effectName,
+        fingerCount: analysis.fingerCount,
+        thumbExt: analysis.fingers[0] ? 1.0 : 0.0,
+        indexExt: analysis.fingers[1] ? 1.0 : 0.0,
+        middleExt: analysis.fingers[2] ? 1.0 : 0.0,
+        ringExt: analysis.fingers[3] ? 1.0 : 0.0,
+        pinkyExt: analysis.fingers[4] ? 1.0 : 0.0,
+        indexX: analysis.indexPos?.x || 0.5,
+        indexY: analysis.indexPos?.y || 0.5,
+        thumbX: analysis.thumbPos?.x || 0.5,
+        thumbY: analysis.thumbPos?.y || 0.5,
+        wristX: analysis.wristPos?.x || 0.5,
+        wristY: analysis.wristPos?.y || 0.5,
+        pinchDist: analysis.pinchDist || 1.0,
+        isPinching: analysis.pinchDist < 0.085 ? 1.0 : 0.0,
+        handSpeed: analysis.speed || 0.0,
+        swipe: analysis.swipe
       };
 
     } else {

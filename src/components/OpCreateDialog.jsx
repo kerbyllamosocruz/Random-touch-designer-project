@@ -122,7 +122,8 @@ export function OpCreateDialog({ isOpen, onClose, onAddOperator }) {
                   </span>
                 </div>
                 <span className="op-card-desc">
-                  {op.type === 'onnxModel' && 'In-browser neural inference (Selfie Segmentation, SqueezeNet, Sobel Edge, or custom .onnx).'}
+                  {op.type === 'onnxModel' && 'In-browser neural inference: MediaPipe Hand & Finger Tracking, Selfie Segmentation, SqueezeNet, or custom .onnx.'}
+                  {op.type === 'handActionFX' && 'Transforms visuals with unique results for each hand gesture (Fist, Palm, Point, Peace, Pinch, Rock).'}
                   {op.type === 'videoIn' && 'Real-time webcam video feed or high-framerate procedural loops.'}
                   {op.type === 'movieFileIn' && 'Video player with playback speed, loop and file loader.'}
                   {op.type === 'feedback' && 'Signature feedback loop for infinite trailing and vortex visual synthesis.'}

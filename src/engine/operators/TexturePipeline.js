@@ -366,6 +366,138 @@ export class TexturePipeline {
 
     outCtx.putImageData(imgData, 0, 0);
   }
+
+  /**
+   * Hand Action FX: Unique visual result for each hand or finger action!
+   */
+  processHandAction(inCanvas, handData, params, time, nodeId, outCanvas, outCtx) {
+    const w = inCanvas.width;
+    const h = inCanvas.height;
+    outCanvas.width = w;
+    outCanvas.height = h;
+
+    const gesture = handData?.gesture || 'none';
+    const pinchDist = handData?.pinchDist !== undefined ? handData.pinchDist : 1.0;
+    const indexX = (handData?.indexX !== undefined ? handData.indexX : 0.5) * w;
+    const indexY = (handData?.indexY !== undefined ? handData.indexY : 0.5) * h;
+    const speed = handData?.handSpeed || 0;
+    const t = time * 0.001;
+
+    // Apply different visual transformation based on gesture:
+    if (gesture === 'fist') {
+      // ✊ 1. Gravitational Vortex / Singularity
+      outCtx.save();
+      outCtx.fillStyle = '#050508';
+      outCtx.fillRect(0, 0, w, h);
+      outCtx.translate(w / 2, h / 2);
+      outCtx.rotate(t * 2.5);
+      outCtx.scale(0.85, 0.85);
+      outCtx.translate(-w / 2, -h / 2);
+      outCtx.drawImage(inCanvas, 0, 0, w, h);
+
+      // Vortex accretion disk
+      outCtx.strokeStyle = 'rgba(244, 63, 94, 0.7)';
+      outCtx.lineWidth = 4;
+      outCtx.shadowColor = '#f43f5e';
+      outCtx.shadowBlur = 20;
+      for (let r = 20; r < 140; r += 25) {
+        outCtx.beginPath();
+        outCtx.arc(w / 2, h / 2, r, t * 4, t * 4 + Math.PI * 1.5);
+        outCtx.stroke();
+      }
+      outCtx.restore();
+
+    } else if (gesture === 'open_palm') {
+      // ✋ 2. Supernova Expansion / 12-Segment Kaleidoscope
+      this.processKaleidoscope(inCanvas, { segments: 12, zoom: 1.15 + Math.sin(t * 4) * 0.05, rotation: t * 20 }, outCanvas, outCtx);
+      outCtx.save();
+      outCtx.globalCompositeOperation = 'lighter';
+      outCtx.filter = 'blur(8px) brightness(160%)';
+      outCtx.drawImage(outCanvas, 0, 0);
+      outCtx.restore();
+
+    } else if (gesture === 'pointing') {
+      // ☝️ 3. Neon Laser Stylus & Interactive Displacement Ripple
+      outCtx.drawImage(inCanvas, 0, 0, w, h);
+
+      // Interactive laser ripple centered on index finger tip!
+      outCtx.save();
+      outCtx.strokeStyle = '#c084fc';
+      outCtx.lineWidth = 3;
+      outCtx.shadowColor = '#a855f7';
+      outCtx.shadowBlur = 25;
+      const ripple = (t * 80) % 60;
+      outCtx.beginPath();
+      outCtx.arc(indexX, indexY, ripple, 0, Math.PI * 2);
+      outCtx.stroke();
+
+      // Glowing fingertip emitter
+      const radGrad = outCtx.createRadialGradient(indexX, indexY, 2, indexX, indexY, 40);
+      radGrad.addColorStop(0, '#ffffff');
+      radGrad.addColorStop(0.3, '#a855f7');
+      radGrad.addColorStop(1, 'transparent');
+      outCtx.fillStyle = radGrad;
+      outCtx.beginPath();
+      outCtx.arc(indexX, indexY, 40, 0, Math.PI * 2);
+      outCtx.fill();
+      outCtx.restore();
+
+    } else if (gesture === 'peace') {
+      // ✌️ 4. Dual Mirror Kaleidoscope & Rainbow Split
+      this.processKaleidoscope(inCanvas, { segments: 8, zoom: 1.05, rotation: 45 }, outCanvas, outCtx);
+      this.processChromatic(outCanvas, { offset: 20, angle: 90 }, outCanvas, outCtx);
+
+    } else if (gesture === 'pinch') {
+      // 🤏 5. Dynamic Pinch Zoom & Optical Lens Warp
+      const zoom = 0.6 + (pinchDist * 1.5);
+      outCtx.save();
+      outCtx.translate(w / 2, h / 2);
+      outCtx.scale(zoom, zoom);
+      outCtx.translate(-w / 2, -h / 2);
+      outCtx.drawImage(inCanvas, 0, 0, w, h);
+      outCtx.restore();
+
+      // Lens boundary indicator
+      outCtx.save();
+      outCtx.strokeStyle = 'rgba(245, 158, 11, 0.6)';
+      outCtx.lineWidth = 2;
+      outCtx.strokeRect(w * (1 - zoom * 0.5) * 0.5, h * (1 - zoom * 0.5) * 0.5, w * zoom * 0.5, h * zoom * 0.5);
+      outCtx.restore();
+
+    } else if (gesture === 'rock') {
+      // 🤘 6. Electric Glitch & Chromatic Strobe
+      this.processChromatic(inCanvas, { offset: 25 + Math.random() * 15, angle: (t * 300) % 360 }, outCanvas, outCtx);
+      outCtx.save();
+      outCtx.strokeStyle = '#ec4899';
+      outCtx.lineWidth = 2;
+      for (let i = 0; i < 4; i++) {
+        outCtx.beginPath();
+        outCtx.moveTo(Math.random() * w, 0);
+        outCtx.lineTo(Math.random() * w, h);
+        outCtx.stroke();
+      }
+      outCtx.restore();
+
+    } else if (gesture === 'thumbs_up') {
+      // 👍 7. Color Spectrum Inversion & Radioactive Glow
+      this.processLevel(inCanvas, { brightness: 1.4, contrast: 1.5, invert: true }, outCanvas, outCtx);
+      this.processBloom(outCanvas, { intensity: 2.5, blur: 22 }, outCanvas, outCtx);
+
+    } else {
+      // Hand movement swipe / idle pass-through with velocity rotation
+      if (speed > 0.4) {
+        outCtx.save();
+        outCtx.translate(w / 2, h / 2);
+        outCtx.rotate(speed * 0.08);
+        outCtx.filter = `hue-rotate(${speed * 30}deg)`;
+        outCtx.translate(-w / 2, -h / 2);
+        outCtx.drawImage(inCanvas, 0, 0, w, h);
+        outCtx.restore();
+      } else {
+        outCtx.drawImage(inCanvas, 0, 0, w, h);
+      }
+    }
+  }
 }
 
 export const texturePipeline = new TexturePipeline();
